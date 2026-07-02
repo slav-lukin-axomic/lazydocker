@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
@@ -156,20 +154,7 @@ func (gui *Gui) containerEnv(container *commands.Container) string {
 		return gui.Tr.NothingToDisplay
 	}
 
-	envVarsList := lo.Map(container.Details.Config.Env, func(envVar string, _ int) []string {
-		splitEnv := strings.SplitN(envVar, "=", 2)
-		key := splitEnv[0]
-		value := ""
-		if len(splitEnv) > 1 {
-			value = splitEnv[1]
-		}
-		return []string{
-			utils.ColoredString(key+":", color.FgGreen),
-			utils.ColoredString(value, color.FgYellow),
-		}
-	})
-
-	output, err := utils.RenderTable(envVarsList)
+	output, err := presentation.RenderContainerEnv(container.Details.Config.Env)
 	if err != nil {
 		gui.Log.Error(err)
 		return gui.Tr.CannotDisplayEnvVariables
@@ -187,49 +172,13 @@ func (gui *Gui) containerConfigStr(container *commands.Container) string {
 		return gui.Tr.WaitingForContainerInfo
 	}
 
-	padding := 10
-	output := ""
-	output += utils.WithPadding("ID: ", padding) + container.ID + "\n"
-	output += utils.WithPadding("Name: ", padding) + container.Name + "\n"
-	output += utils.WithPadding("Image: ", padding) + container.Details.Config.Image + "\n"
-	output += utils.WithPadding("Command: ", padding) + strings.Join(append([]string{container.Details.Path}, container.Details.Args...), " ") + "\n"
-	output += utils.WithPadding("Labels: ", padding) + utils.FormatMap(padding, container.Details.Config.Labels)
-	output += "\n"
-
-	output += utils.WithPadding("Mounts: ", padding)
-	if len(container.Details.Mounts) > 0 {
-		output += "\n"
-		for _, mount := range container.Details.Mounts {
-			if mount.Type == "volume" {
-				output += fmt.Sprintf("%s%s %s\n", strings.Repeat(" ", padding), utils.ColoredString(string(mount.Type)+":", color.FgYellow), mount.Name)
-			} else {
-				output += fmt.Sprintf("%s%s %s:%s\n", strings.Repeat(" ", padding), utils.ColoredString(string(mount.Type)+":", color.FgYellow), mount.Source, mount.Destination)
-			}
-		}
-	} else {
-		output += "none\n"
-	}
-
-	output += utils.WithPadding("Ports: ", padding)
-	if len(container.Details.NetworkSettings.Ports) > 0 {
-		output += "\n"
-		for k, v := range container.Details.NetworkSettings.Ports {
-			for _, host := range v {
-				output += fmt.Sprintf("%s%s %s\n", strings.Repeat(" ", padding), utils.ColoredString(host.HostPort+":", color.FgYellow), k)
-			}
-		}
-	} else {
-		output += "none\n"
-	}
-
 	data, err := utils.MarshalIntoYaml(&container.Details)
 	if err != nil {
 		return fmt.Sprintf("Error marshalling container details: %v", err)
 	}
 
-	output += fmt.Sprintf("\nFull details:\n\n%s", utils.ColoredYamlString(string(data)))
-
-	return output
+	inspect := presentation.ContainerInspectToDomain(container)
+	return presentation.RenderContainerConfig(inspect, string(data))
 }
 
 func (gui *Gui) renderContainerStats(container *commands.Container) tasks.TaskFunc {

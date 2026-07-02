@@ -1,0 +1,22 @@
+ID:       abc123
+Name:     web
+Image:    nginx:latest
+Command:  nginx -g daemon off;
+Labels:   
+          [33mcom.docker.compose.project:[0m myproject
+          [33mcom.docker.compose.service:[0m web
+          [33mmaintainer:[0m team@example.com
+
+Mounts:   
+          [33mvolume:[0m web-data
+          [33mbind:[0m /host/conf:/etc/nginx/conf.d
+Ports:    
+          [33m8443:[0m 443/tcp
+          [33m9443:[0m 443/tcp
+
+Full details:
+
+[36mState[0m:[36m[0m
+[36m  Running[0m:[35m true[0m
+[35m  [0m[36mExitCode[0m:[33m 0[0m
+[33m[0m[36mName[0m:[32m web[0m

@@ -1,6 +1,8 @@
 package presentation
 
 import (
+	"sort"
+
 	"github.com/docker/docker/api/types/container"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
@@ -54,6 +56,50 @@ func ContainerToDomain(c *commands.Container) *domain.Container {
 	}
 
 	return out
+}
+
+// ContainerInspectToDomain is throwaway strangler glue (same lifetime as
+// ContainerToDomain above): it projects the SDK inspect fields the Config and Env
+// views read off a legacy *commands.Container into a framework-free
+// domain.ContainerInspect. Callers guard on DetailsLoaded() before calling, so
+// c.Details is assumed populated. Delete this at the store-swap slice.
+func ContainerInspectToDomain(c *commands.Container) domain.ContainerInspect {
+	inspect := domain.ContainerInspect{
+		ID:      c.ID,
+		Name:    c.Name,
+		Image:   c.Details.Config.Image,
+		Command: append([]string{c.Details.Path}, c.Details.Args...),
+		Labels:  c.Details.Config.Labels,
+		Env:     c.Details.Config.Env,
+	}
+
+	for _, m := range c.Details.Mounts {
+		inspect.Mounts = append(inspect.Mounts, domain.Mount{
+			Type:        string(m.Type),
+			Name:        m.Name,
+			Source:      m.Source,
+			Destination: m.Destination,
+		})
+	}
+
+	for containerPort, bindings := range c.Details.NetworkSettings.Ports {
+		hostPorts := make([]string, 0, len(bindings))
+		for _, binding := range bindings {
+			hostPorts = append(hostPorts, binding.HostPort)
+		}
+		inspect.Ports = append(inspect.Ports, domain.PortBinding{
+			ContainerPort: string(containerPort),
+			HostPorts:     hostPorts,
+		})
+	}
+	// The SDK carries ports in a map, which iterates in random order; sorting by
+	// container port is what makes the Config view goldenable and is a deliberate
+	// improvement over the pre-migration random ordering.
+	sort.Slice(inspect.Ports, func(i, j int) bool {
+		return inspect.Ports[i].ContainerPort < inspect.Ports[j].ContainerPort
+	})
+
+	return inspect
 }
 
 // portsToDomain maps SDK container ports to domain ports (Proto is the SDK's

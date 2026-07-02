@@ -1,0 +1,15 @@
+ID:       def456
+Name:     db
+Image:    postgres:16
+Command:  postgres
+Labels:   none
+
+Mounts:   none
+Ports:    none
+
+Full details:
+
+[36mState[0m:[36m[0m
+[36m  Running[0m:[35m true[0m
+[35m  [0m[36mExitCode[0m:[33m 0[0m
+[33m[0m[36mName[0m:[32m web[0m
