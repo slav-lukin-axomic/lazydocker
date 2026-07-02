@@ -31,6 +31,7 @@ type Gui struct {
 	Log               *logrus.Entry
 	DockerCommand     *commands.DockerCommand
 	ContainerCommands *usecase.ContainerCommands
+	ContainerQueries  *usecase.ContainerQueries
 	OSCommand         *commands.OSCommand
 	State             guiState
 	Config            *config.AppConfig
@@ -142,10 +143,13 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 		ScreenMode:           getScreenMode(config),
 	}
 
+	dockerAdapter := docker.NewAdapter(dockerCommand.Client)
+
 	gui := &Gui{
 		Log:               log,
 		DockerCommand:     dockerCommand,
-		ContainerCommands: usecase.NewContainerCommands(docker.NewAdapter(dockerCommand.Client)),
+		ContainerCommands: usecase.NewContainerCommands(dockerAdapter),
+		ContainerQueries:  usecase.NewContainerQueries(dockerAdapter),
 		OSCommand:         oSCommand,
 		State:             initialState,
 		Config:            config,

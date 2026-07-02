@@ -249,12 +249,19 @@ func (gui *Gui) renderContainerStats(container *commands.Container) tasks.TaskFu
 	})
 }
 
-func (gui *Gui) renderContainerTop(container *commands.Container) tasks.TaskFunc {
+func (gui *Gui) renderContainerTop(ctr *commands.Container) tasks.TaskFunc {
 	return gui.NewTickerTask(TickerTaskOpts{
 		Func: func(ctx context.Context, notifyStopped chan struct{}) {
-			contents, err := container.RenderTop(ctx)
+			result, err := gui.ContainerQueries.Top(ctx, ctr.ID)
 			if err != nil {
 				gui.RenderStringMain(err.Error())
+				return
+			}
+
+			contents, err := presentation.RenderContainerTop(result)
+			if err != nil {
+				gui.RenderStringMain(err.Error())
+				return
 			}
 
 			gui.reRenderStringMain(contents)
