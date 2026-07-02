@@ -1,0 +1,3 @@
+ID         TAG            SIZE       COMMAND
+0123456789 [32mmyimage:latest[0m 1024.00kiB [33mCMD[0m ["nginx"]
+[34m<missing>[0m  [32m[0m               [34m0B[0m         RUN apt-get update && apt-get install -y curl

@@ -1,0 +1,126 @@
+
+
+[32m[36m 40.00 ┤                               ╭────────╮                             
+ 37.00 ┤                            ╭──╯        ╰──────╮                      
+ 34.00 ┤                        ╭───╯                  ╰──────╮               
+ 31.00 ┤                     ╭──╯                             ╰─────╮         
+ 28.00 ┤                 ╭───╯                                      ╰──────╮  
+ 25.00 ┤              ╭──╯                                                 ╰─ 
+ 22.00 ┤          ╭───╯                                                       
+ 19.00 ┤       ╭──╯                                                           
+ 16.00 ┤    ╭──╯                                                              
+ 13.00 ┤╭───╯                                                                 
+ 10.00 ┼╯                                                                     
+          CPU (%): 25.00 (ELAPSED)[0m
+
+[32m 20.00 ┤                               ╭────────╮                             
+ 18.50 ┤                            ╭──╯        ╰──────╮                      
+ 17.00 ┤                        ╭───╯                  ╰──────╮               
+ 15.50 ┤                     ╭──╯                             ╰─────╮         
+ 14.00 ┤                 ╭───╯                                      ╰──────╮  
+ 12.50 ┤              ╭──╯                                                 ╰─ 
+ 11.00 ┤          ╭───╯                                                       
+  9.50 ┤       ╭──╯                                                           
+  8.00 ┤    ╭──╯                                                              
+  6.50 ┤╭───╯                                                                 
+  5.00 ┼╯                                                                     
+          Memory (%): 12.50 (ELAPSED)[0m[0m
+
+PIDs: 7
+
+Traffic received: 2.05kB
+Traffic sent: 4.10kB
+
+[36mClientStats[0m:[36m[0m
+[36m  blkio_stats[0m:[36m[0m
+[36m    io_merged_recursive[0m: null
+    [36mio_queue_recursive[0m: null
+    [36mio_service_bytes_recursive[0m: null
+    [36mio_service_time_recursive[0m: null
+    [36mio_serviced_recursive[0m: null
+    [36mio_time_recursive[0m: null
+    [36mio_wait_time_recursive[0m: null
+    [36msectors_recursive[0m: null
+  [36mcpu_stats[0m:[36m[0m
+[36m    cpu_usage[0m:[36m[0m
+[36m      percpu_usage[0m: null
+      [36mtotal_usage[0m:[33m 0[0m
+[33m      [0m[36musage_in_kernelmode[0m:[33m 0[0m
+[33m      [0m[36musage_in_usermode[0m:[33m 0[0m
+[33m    [0m[36monline_cpus[0m:[33m 0[0m
+[33m    [0m[36msystem_cpu_usage[0m:[33m 0[0m
+[33m    [0m[36mthrottling_data[0m:[36m[0m
+[36m      periods[0m:[33m 0[0m
+[33m      [0m[36mthrottled_periods[0m:[33m 0[0m
+[33m      [0m[36mthrottled_time[0m:[33m 0[0m
+[33m  [0m[36mid[0m:[32m ""[0m[36m[0m
+[36m  memory_stats[0m:[36m[0m
+[36m    limit[0m:[33m 0[0m
+[33m    [0m[36mmax_usage[0m:[33m 0[0m
+[33m    [0m[36mstats[0m:[36m[0m
+[36m      active_anon[0m:[33m 0[0m
+[33m      [0m[36mactive_file[0m:[33m 0[0m
+[33m      [0m[36mcache[0m:[33m 0[0m
+[33m      [0m[36mdirty[0m:[33m 0[0m
+[33m      [0m[36mhierarchical_memory_limit[0m:[33m 0[0m
+[33m      [0m[36mhierarchical_memsw_limit[0m:[33m 0[0m
+[33m      [0m[36minactive_anon[0m:[33m 0[0m
+[33m      [0m[36minactive_file[0m:[33m 0[0m
+[33m      [0m[36mmapped_file[0m:[33m 0[0m
+[33m      [0m[36mpgfault[0m:[33m 0[0m
+[33m      [0m[36mpgmajfault[0m:[33m 0[0m
+[33m      [0m[36mpgpgin[0m:[33m 0[0m
+[33m      [0m[36mpgpgout[0m:[33m 0[0m
+[33m      [0m[36mrss[0m:[33m 0[0m
+[33m      [0m[36mrss_huge[0m:[33m 0[0m
+[33m      [0m[36mtotal_active_anon[0m:[33m 0[0m
+[33m      [0m[36mtotal_active_file[0m:[33m 0[0m
+[33m      [0m[36mtotal_cache[0m:[33m 0[0m
+[33m      [0m[36mtotal_dirty[0m:[33m 0[0m
+[33m      [0m[36mtotal_inactive_anon[0m:[33m 0[0m
+[33m      [0m[36mtotal_inactive_file[0m:[33m 0[0m
+[33m      [0m[36mtotal_mapped_file[0m:[33m 0[0m
+[33m      [0m[36mtotal_pgfault[0m:[33m 0[0m
+[33m      [0m[36mtotal_pgmajfault[0m:[33m 0[0m
+[33m      [0m[36mtotal_pgpgin[0m:[33m 0[0m
+[33m      [0m[36mtotal_pgpgout[0m:[33m 0[0m
+[33m      [0m[36mtotal_rss[0m:[33m 0[0m
+[33m      [0m[36mtotal_rss_huge[0m:[33m 0[0m
+[33m      [0m[36mtotal_unevictable[0m:[33m 0[0m
+[33m      [0m[36mtotal_writeback[0m:[33m 0[0m
+[33m      [0m[36munevictable[0m:[33m 0[0m
+[33m      [0m[36mwriteback[0m:[33m 0[0m
+[33m    [0m[36musage[0m:[33m 0[0m
+[33m  [0m[36mname[0m:[32m ""[0m[36m[0m
+[36m  networks[0m:[36m[0m
+[36m    eth0[0m:[36m[0m
+[36m      rx_bytes[0m:[33m 2048[0m
+[33m      [0m[36mrx_dropped[0m:[33m 0[0m
+[33m      [0m[36mrx_errors[0m:[33m 0[0m
+[33m      [0m[36mrx_packets[0m:[33m 0[0m
+[33m      [0m[36mtx_bytes[0m:[33m 4096[0m
+[33m      [0m[36mtx_dropped[0m:[33m 0[0m
+[33m      [0m[36mtx_errors[0m:[33m 0[0m
+[33m      [0m[36mtx_packets[0m:[33m 0[0m
+[33m  [0m[36mnum_procs[0m:[33m 0[0m
+[33m  [0m[36mpids_stats[0m:[36m[0m
+[36m    current[0m:[33m 7[0m
+[33m  [0m[36mprecpu_stats[0m:[36m[0m
+[36m    cpu_usage[0m:[36m[0m
+[36m      percpu_usage[0m: null
+      [36mtotal_usage[0m:[33m 0[0m
+[33m      [0m[36musage_in_kernelmode[0m:[33m 0[0m
+[33m      [0m[36musage_in_usermode[0m:[33m 0[0m
+[33m    [0m[36monline_cpus[0m:[33m 0[0m
+[33m    [0m[36msystem_cpu_usage[0m:[33m 0[0m
+[33m    [0m[36mthrottling_data[0m:[36m[0m
+[36m      periods[0m:[33m 0[0m
+[33m      [0m[36mthrottled_periods[0m:[33m 0[0m
+[33m      [0m[36mthrottled_time[0m:[33m 0[0m
+[33m  [0m[36mpreread[0m:[32m 0001-01-01T00:00:00Z[0m
+[32m  [0m[36mread[0m:[32m 0001-01-01T00:00:00Z[0m
+[32m  [0m[36mstorage_stats[0m: {}[36m[0m
+[36mDerivedStats[0m:[36m[0m
+[36m  CPUPercentage[0m:[33m 25[0m
+[33m  [0m[36mMemoryPercentage[0m:[33m 12.5[0m
+[33m[0m[36mRecordedAt[0m:[32m RECORDED_AT[0m
