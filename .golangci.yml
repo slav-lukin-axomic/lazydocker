@@ -42,6 +42,23 @@ linters-settings:
             desc: pkg/domain must not import color; presentation owns rendering
           - pkg: github.com/jesseduffield/lazydocker/pkg/gui
             desc: pkg/domain must not depend on the GUI (dependency inversion)
+      # The use-case (application) layer orchestrates the domain over the ports;
+      # like the core it stays framework-free and imports only context +
+      # pkg/domain. Scoped to pkg/usecase only.
+      usecase-app:
+        files:
+          - '**/pkg/usecase/**'
+        deny:
+          - pkg: github.com/docker/docker
+            desc: pkg/usecase is framework-free; the Docker SDK lives only in adapter/docker
+          - pkg: github.com/jesseduffield/gocui
+            desc: pkg/usecase must not import a TUI framework
+          - pkg: github.com/gdamore/tcell
+            desc: pkg/usecase must not import a TUI framework
+          - pkg: github.com/fatih/color
+            desc: pkg/usecase must not import color; presentation owns rendering
+          - pkg: github.com/jesseduffield/lazydocker/pkg/gui
+            desc: pkg/usecase must not depend on the GUI (dependency inversion)
 
 run:
   go: '1.21'

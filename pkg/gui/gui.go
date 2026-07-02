@@ -13,29 +13,32 @@ import (
 	throttle "github.com/boz/go-throttle"
 	"github.com/jesseduffield/gocui"
 	lcUtils "github.com/jesseduffield/lazycore/pkg/utils"
+	"github.com/jesseduffield/lazydocker/pkg/adapter/docker"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/tasks"
+	"github.com/jesseduffield/lazydocker/pkg/usecase"
 	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
 )
 
 // Gui wraps the gocui Gui object which handles rendering and events
 type Gui struct {
-	g             *gocui.Gui
-	Log           *logrus.Entry
-	DockerCommand *commands.DockerCommand
-	OSCommand     *commands.OSCommand
-	State         guiState
-	Config        *config.AppConfig
-	Tr            *i18n.TranslationSet
-	statusManager *statusManager
-	taskManager   *tasks.TaskManager
-	ErrorChan     chan error
-	Views         Views
+	g                 *gocui.Gui
+	Log               *logrus.Entry
+	DockerCommand     *commands.DockerCommand
+	ContainerCommands *usecase.ContainerCommands
+	OSCommand         *commands.OSCommand
+	State             guiState
+	Config            *config.AppConfig
+	Tr                *i18n.TranslationSet
+	statusManager     *statusManager
+	taskManager       *tasks.TaskManager
+	ErrorChan         chan error
+	Views             Views
 
 	// if we've suspended the gui (e.g. because we've switched to a subprocess)
 	// we typically want to pause some things that are running like background
@@ -140,15 +143,16 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 	}
 
 	gui := &Gui{
-		Log:           log,
-		DockerCommand: dockerCommand,
-		OSCommand:     oSCommand,
-		State:         initialState,
-		Config:        config,
-		Tr:            tr,
-		statusManager: &statusManager{},
-		taskManager:   tasks.NewTaskManager(log, tr),
-		ErrorChan:     errorChan,
+		Log:               log,
+		DockerCommand:     dockerCommand,
+		ContainerCommands: usecase.NewContainerCommands(docker.NewAdapter(dockerCommand.Client)),
+		OSCommand:         oSCommand,
+		State:             initialState,
+		Config:            config,
+		Tr:                tr,
+		statusManager:     &statusManager{},
+		taskManager:       tasks.NewTaskManager(log, tr),
+		ErrorChan:         errorChan,
 	}
 
 	deadlock.Opts.Disable = !gui.Config.Debug

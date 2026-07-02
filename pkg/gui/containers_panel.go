@@ -2,15 +2,16 @@ package gui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
@@ -325,14 +326,14 @@ func (gui *Gui) handleContainersRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 		return nil
 	}
 
-	handleMenuPress := func(configOptions container.RemoveOptions) error {
+	handleMenuPress := func(configOptions domain.RemoveOptions) error {
 		return gui.WithWaitingStatus(gui.Tr.RemovingStatus, func() error {
-			if err := ctr.Remove(configOptions); err != nil {
-				if commands.HasErrorCode(err, commands.MustStopContainer) {
+			if err := gui.ContainerCommands.Remove(context.Background(), ctr.ID, configOptions); err != nil {
+				if errors.Is(err, domain.ErrContainerRunning) {
 					return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.MustForceToRemoveContainer, func(g *gocui.Gui, v *gocui.View) error {
 						return gui.WithWaitingStatus(gui.Tr.RemovingStatus, func() error {
 							configOptions.Force = true
-							return ctr.Remove(configOptions)
+							return gui.ContainerCommands.Remove(context.Background(), ctr.ID, configOptions)
 						})
 					}, nil)
 				}
@@ -345,11 +346,11 @@ func (gui *Gui) handleContainersRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 	menuItems := []*types.MenuItem{
 		{
 			LabelColumns: []string{gui.Tr.Remove, "docker rm " + ctr.ID[1:10]},
-			OnPress:      func() error { return handleMenuPress(container.RemoveOptions{}) },
+			OnPress:      func() error { return handleMenuPress(domain.RemoveOptions{}) },
 		},
 		{
 			LabelColumns: []string{gui.Tr.RemoveWithVolumes, "docker rm --volumes " + ctr.ID[1:10]},
-			OnPress:      func() error { return handleMenuPress(container.RemoveOptions{RemoveVolumes: true}) },
+			OnPress:      func() error { return handleMenuPress(domain.RemoveOptions{RemoveVolumes: true}) },
 		},
 	}
 
@@ -362,9 +363,9 @@ func (gui *Gui) handleContainersRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 func (gui *Gui) PauseContainer(container *commands.Container) error {
 	return gui.WithWaitingStatus(gui.Tr.PausingStatus, func() (err error) {
 		if container.Details.State.Paused {
-			err = container.Unpause()
+			err = gui.ContainerCommands.Unpause(context.Background(), container.ID)
 		} else {
-			err = container.Pause()
+			err = gui.ContainerCommands.Pause(context.Background(), container.ID)
 		}
 
 		if err != nil {
@@ -392,7 +393,7 @@ func (gui *Gui) handleContainerStop(g *gocui.Gui, v *gocui.View) error {
 
 	return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.StopContainer, func(g *gocui.Gui, v *gocui.View) error {
 		return gui.WithWaitingStatus(gui.Tr.StoppingStatus, func() error {
-			if err := ctr.Stop(); err != nil {
+			if err := gui.ContainerCommands.Stop(context.Background(), ctr.ID); err != nil {
 				return gui.createErrorPanel(err.Error())
 			}
 
@@ -408,7 +409,7 @@ func (gui *Gui) handleContainerRestart(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	return gui.WithWaitingStatus(gui.Tr.RestartingStatus, func() error {
-		if err := ctr.Restart(); err != nil {
+		if err := gui.ContainerCommands.Restart(context.Background(), ctr.ID); err != nil {
 			return gui.createErrorPanel(err.Error())
 		}
 
@@ -493,7 +494,7 @@ func (gui *Gui) handleStopContainers() error {
 	return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.ConfirmStopContainers, func(g *gocui.Gui, v *gocui.View) error {
 		return gui.WithWaitingStatus(gui.Tr.StoppingStatus, func() error {
 			for _, ctr := range gui.Panels.Containers.List.GetAllItems() {
-				if err := ctr.Stop(); err != nil {
+				if err := gui.ContainerCommands.Stop(context.Background(), ctr.ID); err != nil {
 					gui.Log.Error(err)
 				}
 			}
@@ -507,7 +508,7 @@ func (gui *Gui) handleRemoveContainers() error {
 	return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.ConfirmRemoveContainers, func(g *gocui.Gui, v *gocui.View) error {
 		return gui.WithWaitingStatus(gui.Tr.RemovingStatus, func() error {
 			for _, ctr := range gui.Panels.Containers.List.GetAllItems() {
-				if err := ctr.Remove(container.RemoveOptions{Force: true}); err != nil {
+				if err := gui.ContainerCommands.Remove(context.Background(), ctr.ID, domain.RemoveOptions{Force: true}); err != nil {
 					gui.Log.Error(err)
 				}
 			}
