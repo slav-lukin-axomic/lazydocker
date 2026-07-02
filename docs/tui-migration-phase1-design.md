@@ -242,22 +242,34 @@ the test *fixtures* change, and the Phase-0 goldens prove we didn't regress rend
 
 ## 7. Migration strategy — strangler, by vertical slice
 
-Build the core alongside `pkg/commands`, then flip the GUI one resource at a time, deleting the
-old type as each flips. Suggested sub-slices (each its own `go-developer` delegation + PR, each
-green, goldens passing):
+Build the core alongside `pkg/commands`, then flip the GUI one concern at a time (each its own
+`go-developer` delegation + PR, each green, goldens passing). **Revised 2026-07-02 after a
+blast-radius scout:** the container "vertical" is *not* one clean swap — the stored
+`commands.Container` is a hub for four concerns, only two of which fit the lean domain model
+(list render, lifecycle). So the slices flip render and behaviour first, and the **stored-type
+swap ("retire `commands.Container`") moves to the end**, gated on a raw-inspect port and the
+stats-streaming slice.
 
 ```mermaid
 graph LR
-    A["1a — docker adapter + DockerAPI port + Container domain + ACL mapper"] --> B["1b — container + refresh use cases; re-point GUI Containers/Services; move discovery"]
-    B --> C["1c — Images / Volumes / Networks (simple resources)"]
-    C --> D["1d — ComposeRunner: Services, Projects, custom/bulk cmds, attach, view-logs"]
-    D --> E["1e — EventStream + StatsStream + LogStream; retire DockerCommand & pkg/commands"]
+    A["1a ✅ adapter + DockerAPI port + Container domain + ACL mapper"] --> B["1b — re-point list/summary render (presentation/containers.go) to domain.Container via throwaway bridge; goldens byte-identical"]
+    B --> C["1c — container lifecycle + refresh use cases (by ID); re-point GUI handlers; move discovery to pure domain services"]
+    C --> D["1d — raw-inspect port for the detail / config-YAML view (decouple it from the stored SDK type)"]
+    D --> E["1e — Images / Volumes / Networks (simple resources)"]
+    E --> F["1f — ComposeRunner: Services, Projects, custom/bulk cmds, attach, view-logs"]
+    F --> G["1g — EventStream + StatsStream + LogStream; migrate stats off commands.Container; THEN swap the container store to domain.Container & retire DockerCommand + pkg/commands"]
 ```
 
-- **1a** is the keystone: it proves the ACL mapper against the Phase-0 container goldens.
-- **1e** finally converts the two GUI-direct SDK calls (`ContainerLogs`, `Events`) plus stats
-  behind ports — which is what completes the deferred `DockerCommand.Client` conversion from
-  Phase 0 and lets `docker/docker` leave everything except `adapter/docker`.
+- **Coupling gate (why the reorder):** the detail view marshals the *full* SDK `InspectResponse`
+  to YAML (`containers_panel.go:224`) and the stats graph iterates `StatHistory` under a mutex
+  (`container_stats.go`). A lossy domain projection would change the YAML and break stats, so the
+  **stored** type can only flip after the raw-inspect port (1d) and stats streaming (1g) exist.
+  Until then `container_stats.go` and `sort_container_test.go` stay on `commands.Container`.
+- **1a** ✅ proved the ACL mapper against the Phase-0 container goldens; **1b** proves the domain
+  model *renders* identically — the keystone proof-of-model.
+- **1g** finally converts the two GUI-direct SDK calls (`ContainerLogs`, `Events`) plus stats
+  behind ports — completing the deferred `DockerCommand.Client` conversion from Phase 0 and
+  letting `docker/docker` leave everything except `adapter/docker`.
 
 **Decision to confirm ④:** strangler-by-resource (recommended — small reviewable PRs, app always
 runnable) vs. a temporary `commands` facade that delegates to the core (fewer GUI edits up front
