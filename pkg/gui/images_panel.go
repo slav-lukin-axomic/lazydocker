@@ -82,12 +82,17 @@ func (gui *Gui) imageConfigStr(image *commands.Image) string {
 	output += utils.WithPadding("Size: ", padding) + utils.FormatDecimalBytes(int(image.Image.Size)) + "\n"
 	output += utils.WithPadding("Created: ", padding) + fmt.Sprintf("%v", time.Unix(image.Image.Created, 0).Format(time.RFC1123)) + "\n"
 
-	history, err := image.RenderHistory()
+	history, err := image.History()
 	if err != nil {
 		gui.Log.Error(err)
 	}
 
-	output += "\n\n" + history
+	renderedHistory, err := presentation.RenderImageHistory(history)
+	if err != nil {
+		gui.Log.Error(err)
+	}
+
+	output += "\n\n" + renderedHistory
 
 	return output
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 )
 
@@ -13,7 +12,7 @@ import (
 type Volume struct {
 	Name          string
 	Volume        *volume.Volume
-	Client        *client.Client
+	Client        DockerClient
 	OSCommand     *OSCommand
 	Log           *logrus.Entry
 	DockerCommand LimitedDockerCommand

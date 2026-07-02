@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/client"
 	"github.com/go-errors/errors"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
@@ -28,7 +27,7 @@ type Container struct {
 	ProjectName     string
 	ID              string
 	Container       container.Summary
-	Client          *client.Client
+	Client          DockerClient
 	OSCommand       *OSCommand
 	Log             *logrus.Entry
 	StatHistory     []*RecordedStats

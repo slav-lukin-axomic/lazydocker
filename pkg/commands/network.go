@@ -5,7 +5,6 @@ import (
 
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 )
 
@@ -13,7 +12,7 @@ import (
 type Network struct {
 	Name          string
 	Network       network.Inspect
-	Client        *client.Client
+	Client        DockerClient
 	OSCommand     *OSCommand
 	Log           *logrus.Entry
 	DockerCommand LimitedDockerCommand
