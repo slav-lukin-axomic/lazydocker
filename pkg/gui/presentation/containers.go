@@ -6,15 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/fatih/color"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/samber/lo"
 )
 
-func GetContainerDisplayStrings(guiConfig *config.GuiConfig, container *commands.Container) []string {
+func GetContainerDisplayStrings(guiConfig *config.GuiConfig, container *domain.Container) []string {
 	return []string{
 		getContainerDisplayStatus(guiConfig, container),
 		getContainerDisplaySubstatus(guiConfig, container),
@@ -25,14 +24,14 @@ func GetContainerDisplayStrings(guiConfig *config.GuiConfig, container *commands
 	}
 }
 
-func displayContainerImage(container *commands.Container) string {
-	return strings.TrimPrefix(container.Container.Image, "sha256:")
+func displayContainerImage(container *domain.Container) string {
+	return strings.TrimPrefix(container.Image, "sha256:")
 }
 
-func displayPorts(c *commands.Container) string {
-	portStrings := lo.Map(c.Container.Ports, func(port container.Port, _ int) string {
+func displayPorts(c *domain.Container) string {
+	portStrings := lo.Map(c.Ports, func(port domain.Port, _ int) string {
 		if port.PublicPort == 0 {
-			return fmt.Sprintf("%d/%s", port.PrivatePort, port.Type)
+			return fmt.Sprintf("%d/%s", port.PrivatePort, port.Proto)
 		}
 
 		// docker ps will show '0.0.0.0:80->80/tcp' but we'll show
@@ -42,7 +41,7 @@ func displayPorts(c *commands.Container) string {
 		if port.IP != "0.0.0.0" {
 			ipString = port.IP + ":"
 		}
-		return fmt.Sprintf("%s%d->%d/%s", ipString, port.PublicPort, port.PrivatePort, port.Type)
+		return fmt.Sprintf("%s%d->%d/%s", ipString, port.PublicPort, port.PrivatePort, port.Proto)
 	})
 
 	// sorting because the order of the ports is not deterministic
@@ -53,7 +52,7 @@ func displayPorts(c *commands.Container) string {
 }
 
 // getContainerDisplayStatus returns the colored status of the container
-func getContainerDisplayStatus(guiConfig *config.GuiConfig, c *commands.Container) string {
+func getContainerDisplayStatus(guiConfig *config.GuiConfig, c *domain.Container) string {
 	shortStatusMap := map[string]string{
 		"paused":     "P",
 		"exited":     "X",
@@ -74,31 +73,33 @@ func getContainerDisplayStatus(guiConfig *config.GuiConfig, c *commands.Containe
 		"dead":       '!',
 	}
 
+	state := c.Status.String()
+
 	var containerState string
 	switch guiConfig.ContainerStatusHealthStyle {
 	case "short":
-		containerState = shortStatusMap[c.Container.State]
+		containerState = shortStatusMap[state]
 	case "icon":
-		containerState = string(iconStatusMap[c.Container.State])
+		containerState = string(iconStatusMap[state])
 	case "long":
 		fallthrough
 	default:
-		containerState = c.Container.State
+		containerState = state
 	}
 
 	return utils.ColoredString(containerState, getContainerColor(c))
 }
 
 // GetDisplayStatus returns the exit code if the container has exited, and the health status if the container is running (and has a health check)
-func getContainerDisplaySubstatus(guiConfig *config.GuiConfig, c *commands.Container) string {
-	if !c.DetailsLoaded() {
+func getContainerDisplaySubstatus(guiConfig *config.GuiConfig, c *domain.Container) string {
+	if c.Details == nil {
 		return ""
 	}
 
-	switch c.Container.State {
+	switch c.Status.String() {
 	case "exited":
 		return utils.ColoredString(
-			fmt.Sprintf("(%s)", strconv.Itoa(c.Details.State.ExitCode)), getContainerColor(c),
+			fmt.Sprintf("(%s)", strconv.Itoa(c.Details.ExitCode)), getContainerColor(c),
 		)
 	case "running":
 		return getHealthStatus(guiConfig, c)
@@ -107,8 +108,8 @@ func getContainerDisplaySubstatus(guiConfig *config.GuiConfig, c *commands.Conta
 	}
 }
 
-func getHealthStatus(guiConfig *config.GuiConfig, c *commands.Container) string {
-	if !c.DetailsLoaded() {
+func getHealthStatus(guiConfig *config.GuiConfig, c *domain.Container) string {
+	if c.Details == nil || c.Details.Health == domain.HealthNone {
 		return ""
 	}
 
@@ -116,10 +117,6 @@ func getHealthStatus(guiConfig *config.GuiConfig, c *commands.Container) string 
 		"healthy":   color.FgGreen,
 		"unhealthy": color.FgRed,
 		"starting":  color.FgYellow,
-	}
-
-	if c.Details.State.Health == nil {
-		return ""
 	}
 
 	shortHealthStatusMap := map[string]string{
@@ -134,33 +131,34 @@ func getHealthStatus(guiConfig *config.GuiConfig, c *commands.Container) string 
 		"starting":  '…',
 	}
 
+	health := c.Details.Health.String()
+
 	var healthStatus string
 	switch guiConfig.ContainerStatusHealthStyle {
 	case "short":
-		healthStatus = shortHealthStatusMap[c.Details.State.Health.Status]
+		healthStatus = shortHealthStatusMap[health]
 	case "icon":
-		healthStatus = string(iconHealthStatusMap[c.Details.State.Health.Status])
+		healthStatus = string(iconHealthStatusMap[health])
 	case "long":
 		fallthrough
 	default:
-		healthStatus = c.Details.State.Health.Status
+		healthStatus = health
 	}
 
-	if healthStatusColor, ok := healthStatusColorMap[c.Details.State.Health.Status]; ok {
+	if healthStatusColor, ok := healthStatusColorMap[health]; ok {
 		return utils.ColoredString(fmt.Sprintf("(%s)", healthStatus), healthStatusColor)
 	}
 	return ""
 }
 
 // getDisplayCPUPerc colors the cpu percentage based on how extreme it is
-func getDisplayCPUPerc(c *commands.Container) string {
-	stats, ok := c.GetLastStats()
-	if !ok {
+func getDisplayCPUPerc(c *domain.Container) string {
+	if c.Stats == nil {
 		return ""
 	}
 
-	percentage := stats.DerivedStats.CPUPercentage
-	formattedPercentage := fmt.Sprintf("%.2f%%", stats.DerivedStats.CPUPercentage)
+	percentage := c.Stats.CPUPercentage
+	formattedPercentage := fmt.Sprintf("%.2f%%", c.Stats.CPUPercentage)
 
 	var clr color.Attribute
 	if percentage > 90 {
@@ -175,12 +173,12 @@ func getDisplayCPUPerc(c *commands.Container) string {
 }
 
 // getContainerColor Container color
-func getContainerColor(c *commands.Container) color.Attribute {
-	switch c.Container.State {
+func getContainerColor(c *domain.Container) color.Attribute {
+	switch c.Status.String() {
 	case "exited":
 		// This means the colour may be briefly yellow and then switch to red upon starting
 		// Not sure what a better alternative is.
-		if !c.DetailsLoaded() || c.Details.State.ExitCode == 0 {
+		if c.Details == nil || c.Details.ExitCode == 0 {
 			return color.FgYellow
 		}
 		return color.FgRed

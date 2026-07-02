@@ -31,7 +31,7 @@ func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *commands.Ser
 		}
 	}
 
-	container := service.Container
+	container := ContainerToDomain(service.Container)
 	return []string{
 		getContainerDisplayStatus(guiConfig, container),
 		getContainerDisplaySubstatus(guiConfig, container),

@@ -84,7 +84,7 @@ func TestGetContainerDisplayStrings(t *testing.T) {
 		for _, style := range healthStyles() {
 			t.Run(tc.name+"_"+style, func(t *testing.T) {
 				guiConfig := &config.GuiConfig{ContainerStatusHealthStyle: style}
-				got := strings.Join(GetContainerDisplayStrings(guiConfig, tc.container), colSep)
+				got := strings.Join(GetContainerDisplayStrings(guiConfig, ContainerToDomain(tc.container)), colSep)
 				assertGolden(t, "containers_"+tc.name+"_"+style, got)
 			})
 		}
