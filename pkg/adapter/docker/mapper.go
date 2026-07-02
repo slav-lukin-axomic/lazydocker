@@ -1,0 +1,83 @@
+// Package docker is the driven adapter over the Docker Engine SDK. It is the only
+// package outside vendored code allowed to import github.com/docker/docker, and it
+// translates SDK types to and from the framework-free pkg/domain types (the
+// anti-corruption layer).
+package docker
+
+import (
+	"strings"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
+)
+
+// mapContainerSummary maps an SDK container.Summary to a domain.Container. It
+// replicates the per-container field derivation the pre-migration
+// DockerCommand.GetContainers performed (name/label parsing), so a mapped
+// Container is byte-identical to what that code produced. Details is left nil;
+// inspecting the container populates it separately.
+func mapContainerSummary(summary container.Summary) domain.Container {
+	c := domain.Container{
+		ID:     summary.ID,
+		Image:  summary.Image,
+		Status: domain.ParseStatus(summary.State),
+		Ports:  mapPorts(summary.Ports),
+		Labels: summary.Labels,
+	}
+
+	// Name resolution mirrors GetContainers: a "name" label wins, else the first
+	// entry in Names with the leading slash trimmed, else the container ID.
+	if name, ok := summary.Labels["name"]; ok {
+		c.Name = name
+	} else if len(summary.Names) > 0 {
+		c.Name = strings.TrimLeft(summary.Names[0], "/")
+	} else {
+		c.Name = summary.ID
+	}
+
+	c.ServiceName = summary.Labels["com.docker.compose.service"]
+	c.ProjectName = summary.Labels["com.docker.compose.project"]
+	c.ContainerNumber = summary.Labels["com.docker.compose.container"]
+	c.OneOff = summary.Labels["com.docker.compose.oneoff"] == "True"
+
+	return c
+}
+
+// mapPorts maps a slice of SDK container.Port to domain.Port (Proto is the SDK's
+// Type field). A nil input yields a nil slice.
+func mapPorts(ports []container.Port) []domain.Port {
+	if ports == nil {
+		return nil
+	}
+	out := make([]domain.Port, len(ports))
+	for i, p := range ports {
+		out[i] = domain.Port{
+			IP:          p.IP,
+			PublicPort:  p.PublicPort,
+			PrivatePort: p.PrivatePort,
+			Proto:       p.Type,
+		}
+	}
+	return out
+}
+
+// mapInspectResponse maps an SDK container.InspectResponse to domain
+// ContainerDetails. Health is derived nil-safely: an absent State/Health maps to
+// HealthNone.
+func mapInspectResponse(resp container.InspectResponse) domain.ContainerDetails {
+	details := domain.ContainerDetails{}
+
+	if resp.ContainerJSONBase != nil && resp.State != nil {
+		details.Running = resp.State.Running
+		details.ExitCode = resp.State.ExitCode
+		if resp.State.Health != nil {
+			details.Health = domain.ParseHealth(resp.State.Health.Status)
+		}
+	}
+
+	if resp.Config != nil {
+		details.OpenStdin = resp.Config.OpenStdin
+	}
+
+	return details
+}

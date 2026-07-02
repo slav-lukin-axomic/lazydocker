@@ -11,6 +11,7 @@ linters:
     - exhaustive
     - makezero
     - nakedret
+    - depguard
     # - goconst # TODO: enable and fix issues
   fast: false
 
@@ -21,6 +22,26 @@ linters-settings:
   nakedret:
     # the gods will judge me but I just don't like naked returns at all
     max-func-lines: 0
+
+  depguard:
+    rules:
+      # Keep the hexagon core framework-free: pkg/domain must not reach for the
+      # Docker SDK, any TUI framework, color, or the GUI. Scoped to pkg/domain
+      # only so existing packages and the adapters are unaffected.
+      domain-core:
+        files:
+          - '**/pkg/domain/**'
+        deny:
+          - pkg: github.com/docker/docker
+            desc: pkg/domain is the framework-free core; the Docker SDK lives only in adapter/docker
+          - pkg: github.com/jesseduffield/gocui
+            desc: pkg/domain must not import a TUI framework
+          - pkg: github.com/gdamore/tcell
+            desc: pkg/domain must not import a TUI framework
+          - pkg: github.com/fatih/color
+            desc: pkg/domain must not import color; presentation owns rendering
+          - pkg: github.com/jesseduffield/lazydocker/pkg/gui
+            desc: pkg/domain must not depend on the GUI (dependency inversion)
 
 run:
   go: '1.21'
