@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 )
 
 // fakeAPIClient is a test double for apiClient. Each method delegates to an
@@ -29,6 +30,9 @@ type fakeAPIClient struct {
 	networkListFn      func(ctx context.Context, options network.ListOptions) ([]network.Summary, error)
 	networkRemoveFn    func(ctx context.Context, networkID string) error
 	networksPruneFn    func(ctx context.Context, pruneFilters filters.Args) (network.PruneReport, error)
+	volumeListFn       func(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error)
+	volumeRemoveFn     func(ctx context.Context, volumeID string, force bool) error
+	volumesPruneFn     func(ctx context.Context, pruneFilters filters.Args) (volume.PruneReport, error)
 }
 
 var _ apiClient = (*fakeAPIClient)(nil)
@@ -136,4 +140,25 @@ func (f *fakeAPIClient) NetworksPrune(ctx context.Context, pruneFilters filters.
 		return f.networksPruneFn(ctx, pruneFilters)
 	}
 	return network.PruneReport{}, nil
+}
+
+func (f *fakeAPIClient) VolumeList(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error) {
+	if f.volumeListFn != nil {
+		return f.volumeListFn(ctx, options)
+	}
+	return volume.ListResponse{}, nil
+}
+
+func (f *fakeAPIClient) VolumeRemove(ctx context.Context, volumeID string, force bool) error {
+	if f.volumeRemoveFn != nil {
+		return f.volumeRemoveFn(ctx, volumeID, force)
+	}
+	return nil
+}
+
+func (f *fakeAPIClient) VolumesPrune(ctx context.Context, pruneFilters filters.Args) (volume.PruneReport, error) {
+	if f.volumesPruneFn != nil {
+		return f.volumesPruneFn(ctx, pruneFilters)
+	}
+	return volume.PruneReport{}, nil
 }

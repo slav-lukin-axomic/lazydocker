@@ -10,6 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
 
@@ -160,4 +161,29 @@ func mapNetwork(n network.Inspect) domain.Network {
 	}
 
 	return nw
+}
+
+// mapVolume maps an SDK *volume.Volume (VolumeList returns non-nil elements, the
+// pre-migration assumption) to a domain.Volume. Status passes straight through as
+// a map[string]any so a nil Status is preserved (the config view renders "n/a");
+// UsageData is copied only when the Engine reported it, else left nil.
+func mapVolume(v *volume.Volume) domain.Volume {
+	vol := domain.Volume{
+		Name:       v.Name,
+		Driver:     v.Driver,
+		Scope:      v.Scope,
+		Mountpoint: v.Mountpoint,
+		Labels:     v.Labels,
+		Options:    v.Options,
+		Status:     v.Status,
+	}
+
+	if v.UsageData != nil {
+		vol.UsageData = &domain.VolumeUsageData{
+			RefCount: v.UsageData.RefCount,
+			Size:     v.UsageData.Size,
+		}
+	}
+
+	return vol
 }

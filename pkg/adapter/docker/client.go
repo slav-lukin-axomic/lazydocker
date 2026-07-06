@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
@@ -44,6 +45,9 @@ type apiClient interface {
 	NetworkList(ctx context.Context, options network.ListOptions) ([]network.Summary, error)
 	NetworkRemove(ctx context.Context, networkID string) error
 	NetworksPrune(ctx context.Context, pruneFilters filters.Args) (network.PruneReport, error)
+	VolumeList(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error)
+	VolumeRemove(ctx context.Context, volumeID string, force bool) error
+	VolumesPrune(ctx context.Context, pruneFilters filters.Args) (volume.PruneReport, error)
 }
 
 var _ apiClient = (*client.Client)(nil)
@@ -184,6 +188,33 @@ func (a *Adapter) RemoveNetwork(ctx context.Context, name string) error {
 // PruneNetworks removes all unused networks.
 func (a *Adapter) PruneNetworks(ctx context.Context) error {
 	_, err := a.client.NetworksPrune(ctx, filters.Args{})
+	return err
+}
+
+// ListVolumes returns all volumes mapped to domain types, preserving the order
+// the Engine reports them (the panel owns sorting).
+func (a *Adapter) ListVolumes(ctx context.Context) ([]domain.Volume, error) {
+	result, err := a.client.VolumeList(ctx, volume.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	volumes := make([]domain.Volume, len(result.Volumes))
+	for i, v := range result.Volumes {
+		volumes[i] = mapVolume(v)
+	}
+	return volumes, nil
+}
+
+// RemoveVolume removes the volume with the given name; force removes it even when
+// in use.
+func (a *Adapter) RemoveVolume(ctx context.Context, name string, force bool) error {
+	return a.client.VolumeRemove(ctx, name, force)
+}
+
+// PruneVolumes removes all unused volumes.
+func (a *Adapter) PruneVolumes(ctx context.Context) error {
+	_, err := a.client.VolumesPrune(ctx, filters.Args{})
 	return err
 }
 

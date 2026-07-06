@@ -24,8 +24,8 @@ type TopResult struct {
 // is consumer-defined here in the core and implemented by the docker adapter,
 // which owns the SDK↔domain mapping.
 //
-// This slice covers containers and networks. Image and volume methods are added
-// in later migration slices (see docs/tui-migration-phase1-design.md §4 and §7).
+// This slice covers containers, networks, and volumes. Image methods are added
+// in a later migration slice (see docs/tui-migration-phase1-design.md §4 and §7).
 type DockerAPI interface {
 	// ListContainers returns all containers with Details left nil (inspect
 	// populates details separately).
@@ -63,4 +63,13 @@ type DockerAPI interface {
 	RemoveNetwork(ctx context.Context, name string) error
 	// PruneNetworks removes all unused networks.
 	PruneNetworks(ctx context.Context) error
+
+	// ListVolumes returns all volumes in the order the Engine reports them (the
+	// panel applies its own sort).
+	ListVolumes(ctx context.Context) ([]Volume, error)
+	// RemoveVolume removes the volume with the given name; force removes it even
+	// when in use.
+	RemoveVolume(ctx context.Context, name string, force bool) error
+	// PruneVolumes removes all unused volumes.
+	PruneVolumes(ctx context.Context) error
 }

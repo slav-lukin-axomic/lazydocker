@@ -32,6 +32,9 @@ type fakeDockerAPI struct {
 	listNetworksFn            func(ctx context.Context) ([]domain.Network, error)
 	removeNetworkFn           func(ctx context.Context, name string) error
 	pruneNetworksFn           func(ctx context.Context) error
+	listVolumesFn             func(ctx context.Context) ([]domain.Volume, error)
+	removeVolumeFn            func(ctx context.Context, name string, force bool) error
+	pruneVolumesFn            func(ctx context.Context) error
 }
 
 var _ domain.DockerAPI = (*fakeDockerAPI)(nil)
@@ -144,6 +147,27 @@ func (f *fakeDockerAPI) RemoveNetwork(ctx context.Context, name string) error {
 func (f *fakeDockerAPI) PruneNetworks(ctx context.Context) error {
 	if f.pruneNetworksFn != nil {
 		return f.pruneNetworksFn(ctx)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) ListVolumes(ctx context.Context) ([]domain.Volume, error) {
+	if f.listVolumesFn != nil {
+		return f.listVolumesFn(ctx)
+	}
+	return nil, nil
+}
+
+func (f *fakeDockerAPI) RemoveVolume(ctx context.Context, name string, force bool) error {
+	if f.removeVolumeFn != nil {
+		return f.removeVolumeFn(ctx, name, force)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) PruneVolumes(ctx context.Context) error {
+	if f.pruneVolumesFn != nil {
+		return f.pruneVolumesFn(ctx)
 	}
 	return nil
 }

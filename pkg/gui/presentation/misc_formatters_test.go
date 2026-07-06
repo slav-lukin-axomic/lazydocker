@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/volume"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
@@ -22,9 +21,9 @@ func TestGetImageDisplayStrings(t *testing.T) {
 }
 
 func TestGetVolumeDisplayStrings(t *testing.T) {
-	vol := &commands.Volume{
+	vol := &domain.Volume{
 		Name:   "app-data",
-		Volume: &volume.Volume{Driver: "local"},
+		Driver: "local",
 	}
 	got := strings.Join(GetVolumeDisplayStrings(vol), colSep)
 	assertGolden(t, "volume", got)

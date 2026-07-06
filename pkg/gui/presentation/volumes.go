@@ -1,7 +1,7 @@
 package presentation
 
-import "github.com/jesseduffield/lazydocker/pkg/commands"
+import "github.com/jesseduffield/lazydocker/pkg/domain"
 
-func GetVolumeDisplayStrings(volume *commands.Volume) []string {
-	return []string{volume.Volume.Driver, volume.Name}
+func GetVolumeDisplayStrings(volume *domain.Volume) []string {
+	return []string{volume.Driver, volume.Name}
 }

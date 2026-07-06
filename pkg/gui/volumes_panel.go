@@ -1,12 +1,14 @@
 package gui
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
@@ -15,11 +17,11 @@ import (
 	"github.com/samber/lo"
 )
 
-func (gui *Gui) getVolumesPanel() *panels.SideListPanel[*commands.Volume] {
-	return &panels.SideListPanel[*commands.Volume]{
-		ContextState: &panels.ContextState[*commands.Volume]{
-			GetMainTabs: func() []panels.MainTab[*commands.Volume] {
-				return []panels.MainTab[*commands.Volume]{
+func (gui *Gui) getVolumesPanel() *panels.SideListPanel[*domain.Volume] {
+	return &panels.SideListPanel[*domain.Volume]{
+		ContextState: &panels.ContextState[*domain.Volume]{
+			GetMainTabs: func() []panels.MainTab[*domain.Volume] {
+				return []panels.MainTab[*domain.Volume]{
 					{
 						Key:    "config",
 						Title:  gui.Tr.ConfigTitle,
@@ -27,12 +29,12 @@ func (gui *Gui) getVolumesPanel() *panels.SideListPanel[*commands.Volume] {
 					},
 				}
 			},
-			GetItemContextCacheKey: func(volume *commands.Volume) string {
+			GetItemContextCacheKey: func(volume *domain.Volume) string {
 				return "volumes-" + volume.Name
 			},
 		},
-		ListPanel: panels.ListPanel[*commands.Volume]{
-			List: panels.NewFilteredList[*commands.Volume](),
+		ListPanel: panels.ListPanel[*domain.Volume]{
+			List: panels.NewFilteredList[*domain.Volume](),
 			View: gui.Views.Volumes,
 		},
 		NoItemsMessage: gui.Tr.NoVolumes,
@@ -40,11 +42,11 @@ func (gui *Gui) getVolumesPanel() *panels.SideListPanel[*commands.Volume] {
 		// we're sorting these volumes based on whether they have labels defined,
 		// because those are the ones you typically care about.
 		// Within that, we also sort them alphabetically
-		Sort: func(a *commands.Volume, b *commands.Volume) bool {
-			if len(a.Volume.Labels) == 0 && len(b.Volume.Labels) > 0 {
+		Sort: func(a *domain.Volume, b *domain.Volume) bool {
+			if len(a.Labels) == 0 && len(b.Labels) > 0 {
 				return false
 			}
-			if len(a.Volume.Labels) > 0 && len(b.Volume.Labels) == 0 {
+			if len(a.Labels) > 0 && len(b.Labels) == 0 {
 				return true
 			}
 			return a.Name < b.Name
@@ -53,33 +55,33 @@ func (gui *Gui) getVolumesPanel() *panels.SideListPanel[*commands.Volume] {
 	}
 }
 
-func (gui *Gui) renderVolumeConfig(volume *commands.Volume) tasks.TaskFunc {
+func (gui *Gui) renderVolumeConfig(volume *domain.Volume) tasks.TaskFunc {
 	return gui.NewSimpleRenderStringTask(func() string { return gui.volumeConfigStr(volume) })
 }
 
-func (gui *Gui) volumeConfigStr(volume *commands.Volume) string {
+func (gui *Gui) volumeConfigStr(volume *domain.Volume) string {
 	padding := 15
 	output := ""
 	output += utils.WithPadding("Name: ", padding) + volume.Name + "\n"
-	output += utils.WithPadding("Driver: ", padding) + volume.Volume.Driver + "\n"
-	output += utils.WithPadding("Scope: ", padding) + volume.Volume.Scope + "\n"
-	output += utils.WithPadding("Mountpoint: ", padding) + volume.Volume.Mountpoint + "\n"
-	output += utils.WithPadding("Labels: ", padding) + utils.FormatMap(padding, volume.Volume.Labels) + "\n"
-	output += utils.WithPadding("Options: ", padding) + utils.FormatMap(padding, volume.Volume.Options) + "\n"
+	output += utils.WithPadding("Driver: ", padding) + volume.Driver + "\n"
+	output += utils.WithPadding("Scope: ", padding) + volume.Scope + "\n"
+	output += utils.WithPadding("Mountpoint: ", padding) + volume.Mountpoint + "\n"
+	output += utils.WithPadding("Labels: ", padding) + utils.FormatMap(padding, volume.Labels) + "\n"
+	output += utils.WithPadding("Options: ", padding) + utils.FormatMap(padding, volume.Options) + "\n"
 
 	output += utils.WithPadding("Status: ", padding)
-	if volume.Volume.Status != nil {
+	if volume.Status != nil {
 		output += "\n"
-		for k, v := range volume.Volume.Status {
+		for k, v := range volume.Status {
 			output += utils.FormatMapItem(padding, k, v)
 		}
 	} else {
 		output += "n/a"
 	}
 
-	if volume.Volume.UsageData != nil {
-		output += utils.WithPadding("RefCount: ", padding) + fmt.Sprintf("%d", volume.Volume.UsageData.RefCount) + "\n"
-		output += utils.WithPadding("Size: ", padding) + utils.FormatBinaryBytes(int(volume.Volume.UsageData.Size)) + "\n"
+	if volume.UsageData != nil {
+		output += utils.WithPadding("RefCount: ", padding) + fmt.Sprintf("%d", volume.UsageData.RefCount) + "\n"
+		output += utils.WithPadding("Size: ", padding) + utils.FormatBinaryBytes(int(volume.UsageData.Size)) + "\n"
 	}
 
 	return output
@@ -94,7 +96,7 @@ func (gui *Gui) reloadVolumes() error {
 }
 
 func (gui *Gui) refreshStateVolumes() error {
-	volumes, err := gui.DockerCommand.RefreshVolumes()
+	volumes, err := gui.VolumeCommands.List(context.Background())
 	if err != nil {
 		return err
 	}
@@ -134,7 +136,7 @@ func (gui *Gui) handleVolumesRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 			LabelColumns: []string{option.description, color.New(color.FgRed).Sprint(option.command)},
 			OnPress: func() error {
 				return gui.WithWaitingStatus(gui.Tr.RemovingStatus, func() error {
-					if err := volume.Remove(option.force); err != nil {
+					if err := gui.VolumeCommands.Remove(context.Background(), volume.Name, option.force); err != nil {
 						return gui.createErrorPanel(err.Error())
 					}
 					return nil
@@ -152,7 +154,7 @@ func (gui *Gui) handleVolumesRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 func (gui *Gui) handlePruneVolumes() error {
 	return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.ConfirmPruneVolumes, func(g *gocui.Gui, v *gocui.View) error {
 		return gui.WithWaitingStatus(gui.Tr.PruningStatus, func() error {
-			err := gui.DockerCommand.PruneVolumes()
+			err := gui.VolumeCommands.Prune(context.Background())
 			if err != nil {
 				return gui.createErrorPanel(err.Error())
 			}

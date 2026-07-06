@@ -57,7 +57,7 @@ type CommandObject struct {
 	Service       *domain.Service
 	Container     *domain.Container
 	Image         *Image
-	Volume        *Volume
+	Volume        *domain.Volume
 	Network       *domain.Network
 	Project       *Project
 }
