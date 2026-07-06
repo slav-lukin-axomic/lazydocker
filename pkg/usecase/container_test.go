@@ -218,6 +218,106 @@ func TestContainerCommandsDelegation(t *testing.T) {
 	}
 }
 
+// TestContainerQueriesList verifies List returns every container the port lists
+// with Details populated from the inspect call, and that a container whose
+// inspect errors is returned with a nil Details rather than failing the batch.
+func TestContainerQueriesList(t *testing.T) {
+	t.Parallel()
+
+	ids := []string{"a", "b", "c"}
+	list := func(_ context.Context) ([]domain.Container, error) {
+		out := make([]domain.Container, len(ids))
+		for i, id := range ids {
+			out[i] = domain.Container{ID: id}
+		}
+		return out, nil
+	}
+
+	t.Run("populates Details for every container", func(t *testing.T) {
+		t.Parallel()
+		f := &fakeDockerAPI{
+			listContainersFn: list,
+			inspectContainerFn: func(_ context.Context, id string) (domain.ContainerDetails, error) {
+				return domain.ContainerDetails{Running: true}, nil
+			},
+		}
+		q := NewContainerQueries(f)
+
+		containers, err := q.List(context.Background())
+
+		assert.NoError(t, err)
+		assert.Len(t, containers, len(ids))
+		for _, ctr := range containers {
+			assert.NotNil(t, ctr.Details, "container %s should have Details", ctr.ID)
+			assert.True(t, ctr.Details.Running)
+		}
+	})
+
+	t.Run("leaves Details nil for a container whose inspect fails", func(t *testing.T) {
+		t.Parallel()
+		failID := "b"
+		f := &fakeDockerAPI{
+			listContainersFn: list,
+			inspectContainerFn: func(_ context.Context, id string) (domain.ContainerDetails, error) {
+				if id == failID {
+					return domain.ContainerDetails{}, errors.New("inspect boom")
+				}
+				return domain.ContainerDetails{Running: true}, nil
+			},
+		}
+		q := NewContainerQueries(f)
+
+		containers, err := q.List(context.Background())
+
+		assert.NoError(t, err)
+		byID := map[string]*domain.Container{}
+		for _, ctr := range containers {
+			byID[ctr.ID] = ctr
+		}
+		assert.Nil(t, byID[failID].Details)
+		assert.NotNil(t, byID["a"].Details)
+		assert.NotNil(t, byID["c"].Details)
+	})
+
+	t.Run("surfaces the list error", func(t *testing.T) {
+		t.Parallel()
+		wantErr := errors.New("list boom")
+		f := &fakeDockerAPI{
+			listContainersFn: func(_ context.Context) ([]domain.Container, error) { return nil, wantErr },
+		}
+		q := NewContainerQueries(f)
+
+		containers, err := q.List(context.Background())
+
+		assert.Nil(t, containers)
+		assert.Same(t, wantErr, err)
+	})
+}
+
+// TestContainerQueriesRefreshDetails verifies RefreshDetails populates Details in
+// place on the passed-in slice using the port's inspect result.
+func TestContainerQueriesRefreshDetails(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeDockerAPI{
+		inspectContainerFn: func(_ context.Context, id string) (domain.ContainerDetails, error) {
+			return domain.ContainerDetails{Running: true, Paused: true}, nil
+		},
+	}
+	q := NewContainerQueries(f)
+
+	containers := []*domain.Container{{ID: "a"}, {ID: "b"}}
+
+	err := q.RefreshDetails(context.Background(), containers)
+
+	assert.NoError(t, err)
+	for _, ctr := range containers {
+		assert.NotNil(t, ctr.Details, "container %s should have Details", ctr.ID)
+		assert.True(t, ctr.Details.Running)
+		assert.True(t, ctr.Details.Paused)
+	}
+}
+
 // TestContainerCommandsRemove verifies Remove forwards its options to the port
 // and surfaces domain.ErrContainerRunning unchanged (branchable with errors.Is),
 // as the remove-menu UX depends on that seam.

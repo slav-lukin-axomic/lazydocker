@@ -4,7 +4,6 @@ import (
 	"context"
 	"os/exec"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -18,11 +17,6 @@ type Service struct {
 	Log           *logrus.Entry
 	Container     *Container
 	DockerCommand LimitedDockerCommand
-}
-
-// Remove removes the service's containers
-func (s *Service) Remove(options container.RemoveOptions) error {
-	return s.Container.Remove(options)
 }
 
 // Stop stops the service's containers

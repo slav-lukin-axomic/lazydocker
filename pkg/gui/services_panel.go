@@ -236,7 +236,7 @@ func (gui *Gui) handleServiceStop(g *gocui.Gui, v *gocui.View) error {
 				if service.Container == nil {
 					return gui.createErrorPanel(gui.Tr.CannotManageNonLocalService)
 				}
-				return service.Container.Stop()
+				return gui.ContainerCommands.Stop(context.Background(), service.Container.ID)
 			}
 			if err := service.Stop(); err != nil {
 				return gui.createErrorPanel(err.Error())
@@ -276,7 +276,7 @@ func (gui *Gui) handleServiceRestart(g *gocui.Gui, v *gocui.View) error {
 			if service.Container == nil {
 				return gui.createErrorPanel(gui.Tr.CannotManageNonLocalService)
 			}
-			return service.Container.Restart()
+			return gui.ContainerCommands.Restart(context.Background(), service.Container.ID)
 		}
 		if err := service.Restart(); err != nil {
 			return gui.createErrorPanel(err.Error())
@@ -296,7 +296,7 @@ func (gui *Gui) handleServiceStart(g *gocui.Gui, v *gocui.View) error {
 			return gui.createErrorPanel(gui.Tr.CannotManageNonLocalService)
 		}
 		return gui.WithWaitingStatus(gui.Tr.StartingStatus, func() error {
-			return service.Container.Start()
+			return gui.ContainerCommands.Start(context.Background(), service.Container.ID)
 		})
 	}
 

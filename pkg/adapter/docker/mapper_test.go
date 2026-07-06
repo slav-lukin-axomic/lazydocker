@@ -188,6 +188,15 @@ func TestMapInspectResponse(t *testing.T) {
 			},
 			want: domain.ContainerDetails{Running: true, Health: domain.HealthStarting},
 		},
+		{
+			name: "paused",
+			resp: container.InspectResponse{
+				ContainerJSONBase: &container.ContainerJSONBase{
+					State: &container.State{Running: true, Paused: true},
+				},
+			},
+			want: domain.ContainerDetails{Running: true, Paused: true, Health: domain.HealthNone},
+		},
 	}
 
 	for _, tc := range cases {

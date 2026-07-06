@@ -26,6 +26,7 @@ type Container struct {
 // populated by inspecting a container and is nil on a Container until then.
 type ContainerDetails struct {
 	Running  bool
+	Paused   bool
 	ExitCode int
 	Health   Health
 	// OpenStdin gates whether the container can be attached to.

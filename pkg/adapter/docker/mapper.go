@@ -70,6 +70,7 @@ func mapInspectResponse(resp container.InspectResponse) domain.ContainerDetails 
 
 	if resp.ContainerJSONBase != nil && resp.State != nil {
 		details.Running = resp.State.Running
+		details.Paused = resp.State.Paused
 		details.ExitCode = resp.State.ExitCode
 		if resp.State.Health != nil {
 			details.Health = domain.ParseHealth(resp.State.Health.Status)
