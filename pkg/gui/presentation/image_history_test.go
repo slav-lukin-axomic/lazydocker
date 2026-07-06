@@ -3,7 +3,7 @@ package presentation
 import (
 	"testing"
 
-	"github.com/docker/docker/api/types/image"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
 
 func TestRenderImageHistory(t *testing.T) {
@@ -15,7 +15,7 @@ func TestRenderImageHistory(t *testing.T) {
 }
 
 func TestRenderImageHistoryEmpty(t *testing.T) {
-	got, err := RenderImageHistory([]image.HistoryResponseItem{})
+	got, err := RenderImageHistory([]domain.HistoryLayer{})
 	if err != nil {
 		t.Fatalf("RenderImageHistory returned error: %v", err)
 	}

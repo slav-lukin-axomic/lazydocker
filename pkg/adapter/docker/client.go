@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
@@ -48,6 +49,10 @@ type apiClient interface {
 	VolumeList(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	VolumesPrune(ctx context.Context, pruneFilters filters.Args) (volume.PruneReport, error)
+	ImageList(ctx context.Context, options image.ListOptions) ([]image.Summary, error)
+	ImageHistory(ctx context.Context, imageID string, historyOpts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error)
+	ImageRemove(ctx context.Context, imageID string, options image.RemoveOptions) ([]image.DeleteResponse, error)
+	ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error)
 }
 
 var _ apiClient = (*client.Client)(nil)
@@ -215,6 +220,50 @@ func (a *Adapter) RemoveVolume(ctx context.Context, name string, force bool) err
 // PruneVolumes removes all unused volumes.
 func (a *Adapter) PruneVolumes(ctx context.Context) error {
 	_, err := a.client.VolumesPrune(ctx, filters.Args{})
+	return err
+}
+
+// ListImages returns all images mapped to domain types, preserving the order the
+// Engine reports them (the panel owns sorting). Name/Tag are left zero: the
+// usecase derives them from RepoTags.
+func (a *Adapter) ListImages(ctx context.Context) ([]domain.Image, error) {
+	summaries, err := a.client.ImageList(ctx, image.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	images := make([]domain.Image, len(summaries))
+	for i, summary := range summaries {
+		images[i] = mapImage(summary)
+	}
+	return images, nil
+}
+
+// ImageHistory returns the build-layer history of the image with the given id,
+// mapped to domain types.
+func (a *Adapter) ImageHistory(ctx context.Context, id string) ([]domain.HistoryLayer, error) {
+	items, err := a.client.ImageHistory(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	layers := make([]domain.HistoryLayer, len(items))
+	for i, item := range items {
+		layers[i] = mapHistoryLayer(item)
+	}
+	return layers, nil
+}
+
+// RemoveImage removes the image with the given id; force removes it even when
+// referenced, and pruneChildren removes untagged parents.
+func (a *Adapter) RemoveImage(ctx context.Context, id string, force, pruneChildren bool) error {
+	_, err := a.client.ImageRemove(ctx, id, image.RemoveOptions{Force: force, PruneChildren: pruneChildren})
+	return err
+}
+
+// PruneImages removes all dangling images.
+func (a *Adapter) PruneImages(ctx context.Context) error {
+	_, err := a.client.ImagesPrune(ctx, filters.Args{})
 	return err
 }
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
@@ -186,4 +187,27 @@ func mapVolume(v *volume.Volume) domain.Volume {
 	}
 
 	return vol
+}
+
+// mapImage maps an SDK image.Summary to a domain.Image. Name and Tag are left
+// zero: the usecase derives them from RepoTags (applying the configured
+// name-prefix replacements), so the mapping stays free of that config dependency.
+func mapImage(img image.Summary) domain.Image {
+	return domain.Image{
+		ID:       img.ID,
+		RepoTags: img.RepoTags,
+		Size:     img.Size,
+		Created:  img.Created,
+	}
+}
+
+// mapHistoryLayer maps an SDK image.HistoryResponseItem to a domain.HistoryLayer,
+// copying the subset the history view renders.
+func mapHistoryLayer(item image.HistoryResponseItem) domain.HistoryLayer {
+	return domain.HistoryLayer{
+		ID:        item.ID,
+		Tags:      item.Tags,
+		CreatedBy: item.CreatedBy,
+		Size:      item.Size,
+	}
 }

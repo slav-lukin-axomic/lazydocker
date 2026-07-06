@@ -1,15 +1,16 @@
 package gui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/image"
 	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
@@ -18,13 +19,13 @@ import (
 	"github.com/samber/lo"
 )
 
-func (gui *Gui) getImagesPanel() *panels.SideListPanel[*commands.Image] {
+func (gui *Gui) getImagesPanel() *panels.SideListPanel[*domain.Image] {
 	noneLabel := "<none>"
 
-	return &panels.SideListPanel[*commands.Image]{
-		ContextState: &panels.ContextState[*commands.Image]{
-			GetMainTabs: func() []panels.MainTab[*commands.Image] {
-				return []panels.MainTab[*commands.Image]{
+	return &panels.SideListPanel[*domain.Image]{
+		ContextState: &panels.ContextState[*domain.Image]{
+			GetMainTabs: func() []panels.MainTab[*domain.Image] {
+				return []panels.MainTab[*domain.Image]{
 					{
 						Key:    "config",
 						Title:  gui.Tr.ConfigTitle,
@@ -32,17 +33,17 @@ func (gui *Gui) getImagesPanel() *panels.SideListPanel[*commands.Image] {
 					},
 				}
 			},
-			GetItemContextCacheKey: func(image *commands.Image) string {
+			GetItemContextCacheKey: func(image *domain.Image) string {
 				return "images-" + image.ID
 			},
 		},
-		ListPanel: panels.ListPanel[*commands.Image]{
-			List: panels.NewFilteredList[*commands.Image](),
+		ListPanel: panels.ListPanel[*domain.Image]{
+			List: panels.NewFilteredList[*domain.Image](),
 			View: gui.Views.Images,
 		},
 		NoItemsMessage: gui.Tr.NoImages,
 		Gui:            gui.intoInterface(),
-		Sort: func(a *commands.Image, b *commands.Image) bool {
+		Sort: func(a *domain.Image, b *domain.Image) bool {
 			if a.Name == noneLabel && b.Name != noneLabel {
 				return false
 			}
@@ -65,7 +66,7 @@ func (gui *Gui) getImagesPanel() *panels.SideListPanel[*commands.Image] {
 	}
 }
 
-func (gui *Gui) renderImageConfigTask(image *commands.Image) tasks.TaskFunc {
+func (gui *Gui) renderImageConfigTask(image *domain.Image) tasks.TaskFunc {
 	return gui.NewRenderStringTask(RenderStringTaskOpts{
 		GetStrContent: func() string { return gui.imageConfigStr(image) },
 		Autoscroll:    false,
@@ -73,16 +74,16 @@ func (gui *Gui) renderImageConfigTask(image *commands.Image) tasks.TaskFunc {
 	})
 }
 
-func (gui *Gui) imageConfigStr(image *commands.Image) string {
+func (gui *Gui) imageConfigStr(image *domain.Image) string {
 	padding := 10
 	output := ""
 	output += utils.WithPadding("Name: ", padding) + image.Name + "\n"
-	output += utils.WithPadding("ID: ", padding) + image.Image.ID + "\n"
-	output += utils.WithPadding("Tags: ", padding) + utils.ColoredString(strings.Join(image.Image.RepoTags, ", "), color.FgGreen) + "\n"
-	output += utils.WithPadding("Size: ", padding) + utils.FormatDecimalBytes(int(image.Image.Size)) + "\n"
-	output += utils.WithPadding("Created: ", padding) + fmt.Sprintf("%v", time.Unix(image.Image.Created, 0).Format(time.RFC1123)) + "\n"
+	output += utils.WithPadding("ID: ", padding) + image.ID + "\n"
+	output += utils.WithPadding("Tags: ", padding) + utils.ColoredString(strings.Join(image.RepoTags, ", "), color.FgGreen) + "\n"
+	output += utils.WithPadding("Size: ", padding) + utils.FormatDecimalBytes(int(image.Size)) + "\n"
+	output += utils.WithPadding("Created: ", padding) + fmt.Sprintf("%v", time.Unix(image.Created, 0).Format(time.RFC1123)) + "\n"
 
-	history, err := image.History()
+	history, err := gui.ImageCommands.History(context.Background(), image.ID)
 	if err != nil {
 		gui.Log.Error(err)
 	}
@@ -106,7 +107,7 @@ func (gui *Gui) reloadImages() error {
 }
 
 func (gui *Gui) refreshStateImages() error {
-	images, err := gui.DockerCommand.RefreshImages()
+	images, err := gui.ImageCommands.List(context.Background())
 	if err != nil {
 		return err
 	}
@@ -128,7 +129,8 @@ func (gui *Gui) handleImagesRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 	type removeImageOption struct {
 		description   string
 		command       string
-		configOptions image.RemoveOptions
+		force         bool
+		pruneChildren bool
 	}
 
 	img, err := gui.Panels.Images.GetSelectedItem()
@@ -143,22 +145,26 @@ func (gui *Gui) handleImagesRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 		{
 			description:   gui.Tr.Remove,
 			command:       "docker image rm " + shortSha,
-			configOptions: image.RemoveOptions{PruneChildren: true, Force: false},
+			force:         false,
+			pruneChildren: true,
 		},
 		{
 			description:   gui.Tr.RemoveWithoutPrune,
 			command:       "docker image rm --no-prune " + shortSha,
-			configOptions: image.RemoveOptions{PruneChildren: false, Force: false},
+			force:         false,
+			pruneChildren: false,
 		},
 		{
 			description:   gui.Tr.RemoveWithForce,
 			command:       "docker image rm --force " + shortSha,
-			configOptions: image.RemoveOptions{PruneChildren: true, Force: true},
+			force:         true,
+			pruneChildren: true,
 		},
 		{
 			description:   gui.Tr.RemoveWithoutPruneWithForce,
 			command:       "docker image rm --no-prune --force " + shortSha,
-			configOptions: image.RemoveOptions{PruneChildren: false, Force: true},
+			force:         true,
+			pruneChildren: false,
 		},
 	}
 
@@ -169,7 +175,7 @@ func (gui *Gui) handleImagesRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 				color.New(color.FgRed).Sprint(option.command),
 			},
 			OnPress: func() error {
-				if err := img.Remove(option.configOptions); err != nil {
+				if err := gui.ImageCommands.Remove(context.Background(), img.ID, option.force, option.pruneChildren); err != nil {
 					return gui.createErrorPanel(err.Error())
 				}
 
@@ -187,7 +193,7 @@ func (gui *Gui) handleImagesRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 func (gui *Gui) handlePruneImages() error {
 	return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.ConfirmPruneImages, func(g *gocui.Gui, v *gocui.View) error {
 		return gui.WithWaitingStatus(gui.Tr.PruningStatus, func() error {
-			err := gui.DockerCommand.PruneImages()
+			err := gui.ImageCommands.Prune(context.Background())
 			if err != nil {
 				return gui.createErrorPanel(err.Error())
 			}

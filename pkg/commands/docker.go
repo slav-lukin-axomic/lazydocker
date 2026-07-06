@@ -56,7 +56,7 @@ type CommandObject struct {
 	DockerCompose string
 	Service       *domain.Service
 	Container     *domain.Container
-	Image         *Image
+	Image         *domain.Image
 	Volume        *domain.Volume
 	Network       *domain.Network
 	Project       *Project

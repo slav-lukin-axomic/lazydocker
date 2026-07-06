@@ -24,8 +24,9 @@ type TopResult struct {
 // is consumer-defined here in the core and implemented by the docker adapter,
 // which owns the SDK↔domain mapping.
 //
-// This slice covers containers, networks, and volumes. Image methods are added
-// in a later migration slice (see docs/tui-migration-phase1-design.md §4 and §7).
+// This slice covers containers, networks, volumes, and images — the port is
+// complete for the migrated simple-resource panels (see
+// docs/tui-migration-phase1-design.md §4 and §7).
 type DockerAPI interface {
 	// ListContainers returns all containers with Details left nil (inspect
 	// populates details separately).
@@ -72,4 +73,16 @@ type DockerAPI interface {
 	RemoveVolume(ctx context.Context, name string, force bool) error
 	// PruneVolumes removes all unused volumes.
 	PruneVolumes(ctx context.Context) error
+
+	// ListImages returns all images in the order the Engine reports them (the
+	// panel applies its own sort). Name/Tag are left zero for the caller to derive
+	// from RepoTags.
+	ListImages(ctx context.Context) ([]Image, error)
+	// ImageHistory returns the build-layer history of the image with the given id.
+	ImageHistory(ctx context.Context, id string) ([]HistoryLayer, error)
+	// RemoveImage removes the image with the given id; force removes it even when
+	// referenced, and pruneChildren removes untagged parents.
+	RemoveImage(ctx context.Context, id string, force, pruneChildren bool) error
+	// PruneImages removes all dangling images.
+	PruneImages(ctx context.Context) error
 }

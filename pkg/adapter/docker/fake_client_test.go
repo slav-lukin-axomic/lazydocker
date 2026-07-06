@@ -6,8 +6,10 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
+	"github.com/docker/docker/client"
 )
 
 // fakeAPIClient is a test double for apiClient. Each method delegates to an
@@ -33,6 +35,10 @@ type fakeAPIClient struct {
 	volumeListFn       func(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error)
 	volumeRemoveFn     func(ctx context.Context, volumeID string, force bool) error
 	volumesPruneFn     func(ctx context.Context, pruneFilters filters.Args) (volume.PruneReport, error)
+	imageListFn        func(ctx context.Context, options image.ListOptions) ([]image.Summary, error)
+	imageHistoryFn     func(ctx context.Context, imageID string, historyOpts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error)
+	imageRemoveFn      func(ctx context.Context, imageID string, options image.RemoveOptions) ([]image.DeleteResponse, error)
+	imagesPruneFn      func(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error)
 }
 
 var _ apiClient = (*fakeAPIClient)(nil)
@@ -161,4 +167,32 @@ func (f *fakeAPIClient) VolumesPrune(ctx context.Context, pruneFilters filters.A
 		return f.volumesPruneFn(ctx, pruneFilters)
 	}
 	return volume.PruneReport{}, nil
+}
+
+func (f *fakeAPIClient) ImageList(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+	if f.imageListFn != nil {
+		return f.imageListFn(ctx, options)
+	}
+	return nil, nil
+}
+
+func (f *fakeAPIClient) ImageHistory(ctx context.Context, imageID string, historyOpts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error) {
+	if f.imageHistoryFn != nil {
+		return f.imageHistoryFn(ctx, imageID, historyOpts...)
+	}
+	return nil, nil
+}
+
+func (f *fakeAPIClient) ImageRemove(ctx context.Context, imageID string, options image.RemoveOptions) ([]image.DeleteResponse, error) {
+	if f.imageRemoveFn != nil {
+		return f.imageRemoveFn(ctx, imageID, options)
+	}
+	return nil, nil
+}
+
+func (f *fakeAPIClient) ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error) {
+	if f.imagesPruneFn != nil {
+		return f.imagesPruneFn(ctx, pruneFilters)
+	}
+	return image.PruneReport{}, nil
 }

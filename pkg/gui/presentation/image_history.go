@@ -3,15 +3,15 @@ package presentation
 import (
 	"strings"
 
-	"github.com/docker/docker/api/types/image"
 	"github.com/fatih/color"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/samber/lo"
 )
 
 // RenderImageHistory renders the layer history of an image as a colored table.
-func RenderImageHistory(history []image.HistoryResponseItem) (string, error) {
-	tableBody := lo.Map(history, func(layer image.HistoryResponseItem, _ int) []string {
+func RenderImageHistory(history []domain.HistoryLayer) (string, error) {
+	tableBody := lo.Map(history, func(layer domain.HistoryLayer, _ int) []string {
 		return getHistoryResponseItemDisplayStrings(layer)
 	})
 
@@ -21,7 +21,7 @@ func RenderImageHistory(history []image.HistoryResponseItem) (string, error) {
 	return utils.RenderTable(table)
 }
 
-func getHistoryResponseItemDisplayStrings(layer image.HistoryResponseItem) []string {
+func getHistoryResponseItemDisplayStrings(layer domain.HistoryLayer) []string {
 	tag := ""
 	if len(layer.Tags) > 0 {
 		tag = layer.Tags[0]

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/fatih/color"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/stretchr/testify/assert"
@@ -106,8 +105,8 @@ func exitedSummary() container.Summary {
 	return container.Summary{ID: "exitedid", State: "exited", Image: "myimage:latest"}
 }
 
-func historyItems() []image.HistoryResponseItem {
-	return []image.HistoryResponseItem{
+func historyItems() []domain.HistoryLayer {
+	return []domain.HistoryLayer{
 		{
 			ID:        "sha256:0123456789abcdef",
 			Tags:      []string{"myimage:latest"},

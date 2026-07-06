@@ -4,17 +4,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/image"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 )
 
 func TestGetImageDisplayStrings(t *testing.T) {
-	img := &commands.Image{
-		Name:  "nginx",
-		Tag:   "1.25",
-		Image: image.Summary{Size: 142 * 1000 * 1000},
+	img := &domain.Image{
+		Name: "nginx",
+		Tag:  "1.25",
+		Size: 142 * 1000 * 1000,
 	}
 	got := strings.Join(GetImageDisplayStrings(img), colSep)
 	assertGolden(t, "image", got)

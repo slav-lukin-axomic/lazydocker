@@ -35,6 +35,10 @@ type fakeDockerAPI struct {
 	listVolumesFn             func(ctx context.Context) ([]domain.Volume, error)
 	removeVolumeFn            func(ctx context.Context, name string, force bool) error
 	pruneVolumesFn            func(ctx context.Context) error
+	listImagesFn              func(ctx context.Context) ([]domain.Image, error)
+	imageHistoryFn            func(ctx context.Context, id string) ([]domain.HistoryLayer, error)
+	removeImageFn             func(ctx context.Context, id string, force, pruneChildren bool) error
+	pruneImagesFn             func(ctx context.Context) error
 }
 
 var _ domain.DockerAPI = (*fakeDockerAPI)(nil)
@@ -168,6 +172,34 @@ func (f *fakeDockerAPI) RemoveVolume(ctx context.Context, name string, force boo
 func (f *fakeDockerAPI) PruneVolumes(ctx context.Context) error {
 	if f.pruneVolumesFn != nil {
 		return f.pruneVolumesFn(ctx)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) ListImages(ctx context.Context) ([]domain.Image, error) {
+	if f.listImagesFn != nil {
+		return f.listImagesFn(ctx)
+	}
+	return nil, nil
+}
+
+func (f *fakeDockerAPI) ImageHistory(ctx context.Context, id string) ([]domain.HistoryLayer, error) {
+	if f.imageHistoryFn != nil {
+		return f.imageHistoryFn(ctx, id)
+	}
+	return nil, nil
+}
+
+func (f *fakeDockerAPI) RemoveImage(ctx context.Context, id string, force, pruneChildren bool) error {
+	if f.removeImageFn != nil {
+		return f.removeImageFn(ctx, id, force, pruneChildren)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) PruneImages(ctx context.Context) error {
+	if f.pruneImagesFn != nil {
+		return f.pruneImagesFn(ctx)
 	}
 	return nil
 }
