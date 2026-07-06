@@ -9,7 +9,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/fatih/color"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,22 +44,50 @@ func assertGolden(t *testing.T, name, got string) {
 
 // --- fixture helpers ---
 
-// makeContainer builds a *commands.Container from a bare container.Summary,
-// leaving details unloaded (DetailsLoaded() == false).
-func makeContainer(name string, summary container.Summary) *commands.Container {
-	return &commands.Container{
-		Name:      name,
-		ID:        summary.ID,
-		Container: summary,
+// makeContainer builds a *domain.Container from a bare container.Summary,
+// leaving details unloaded (DetailsLoaded() == false). The SDK summary is still
+// used to author fixtures compactly; makeContainer maps it to the framework-free
+// domain fields presentation renders.
+func makeContainer(name string, summary container.Summary) *domain.Container {
+	return &domain.Container{
+		Name:   name,
+		ID:     summary.ID,
+		Image:  summary.Image,
+		Status: domain.ParseStatus(summary.State),
+		Ports:  portsFromSummary(summary.Ports),
+		Labels: summary.Labels,
 	}
 }
 
-// withDetails attaches inspect details so DetailsLoaded() reports true.
-func withDetails(c *commands.Container, state container.State) *commands.Container {
-	c.Details = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{State: &state},
+// withDetails attaches inspect details so DetailsLoaded() reports true, mapping
+// the SDK state the same way the driven adapter does.
+func withDetails(c *domain.Container, state container.State) *domain.Container {
+	details := &domain.ContainerDetails{
+		Running:  state.Running,
+		ExitCode: state.ExitCode,
 	}
+	if state.Health != nil {
+		details.Health = domain.ParseHealth(state.Health.Status)
+	}
+	c.Details = details
 	return c
+}
+
+// portsFromSummary maps SDK ports to domain ports (Proto is the SDK's Type).
+func portsFromSummary(ports []container.Port) []domain.Port {
+	if ports == nil {
+		return nil
+	}
+	out := make([]domain.Port, len(ports))
+	for i, p := range ports {
+		out[i] = domain.Port{
+			IP:          p.IP,
+			PublicPort:  p.PublicPort,
+			PrivatePort: p.PrivatePort,
+			Proto:       p.Type,
+		}
+	}
+	return out
 }
 
 func runningSummary() container.Summary {

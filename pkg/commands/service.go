@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +16,7 @@ type Service struct {
 	ProjectName   string
 	OSCommand     *OSCommand
 	Log           *logrus.Entry
-	Container     *Container
+	Container     *domain.Container
 	DockerCommand LimitedDockerCommand
 }
 

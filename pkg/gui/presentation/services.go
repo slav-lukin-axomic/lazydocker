@@ -32,7 +32,7 @@ func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *commands.Ser
 		}
 	}
 
-	container := ContainerToDomain(service.Container)
+	container := service.Container
 	// Stats live in the StatsMonitor now, so the caller passes the latest sample
 	// (nil when none) rather than the bridge populating it.
 	container.Stats = stats

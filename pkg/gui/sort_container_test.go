@@ -4,114 +4,89 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/stretchr/testify/assert"
 )
 
-func sampleContainers() []*commands.Container {
-	return []*commands.Container{
+func sampleContainers() []*domain.Container {
+	return []*domain.Container{
 		{
-			ID:   "1",
-			Name: "1",
-			Container: container.Summary{
-				State: "exited",
-			},
+			ID:     "1",
+			Name:   "1",
+			Status: domain.StatusExited,
 		},
 		{
-			ID:   "2",
-			Name: "2",
-			Container: container.Summary{
-				State: "running",
-			},
+			ID:     "2",
+			Name:   "2",
+			Status: domain.StatusRunning,
 		},
 		{
-			ID:   "3",
-			Name: "3",
-			Container: container.Summary{
-				State: "running",
-			},
+			ID:     "3",
+			Name:   "3",
+			Status: domain.StatusRunning,
 		},
 		{
-			ID:   "4",
-			Name: "4",
-			Container: container.Summary{
-				State: "created",
-			},
+			ID:     "4",
+			Name:   "4",
+			Status: domain.StatusCreated,
 		},
 	}
 }
 
-func expectedPerStatusContainers() []*commands.Container {
-	return []*commands.Container{
+func expectedPerStatusContainers() []*domain.Container {
+	return []*domain.Container{
 		{
-			ID:   "2",
-			Name: "2",
-			Container: container.Summary{
-				State: "running",
-			},
+			ID:     "2",
+			Name:   "2",
+			Status: domain.StatusRunning,
 		},
 		{
-			ID:   "3",
-			Name: "3",
-			Container: container.Summary{
-				State: "running",
-			},
+			ID:     "3",
+			Name:   "3",
+			Status: domain.StatusRunning,
 		},
 		{
-			ID:   "1",
-			Name: "1",
-			Container: container.Summary{
-				State: "exited",
-			},
+			ID:     "1",
+			Name:   "1",
+			Status: domain.StatusExited,
 		},
 		{
-			ID:   "4",
-			Name: "4",
-			Container: container.Summary{
-				State: "created",
-			},
+			ID:     "4",
+			Name:   "4",
+			Status: domain.StatusCreated,
 		},
 	}
 }
 
-func expectedLegacySortedContainers() []*commands.Container {
-	return []*commands.Container{
+func expectedLegacySortedContainers() []*domain.Container {
+	return []*domain.Container{
 		{
-			ID:   "1",
-			Name: "1",
-			Container: container.Summary{
-				State: "exited",
-			},
+			ID:     "1",
+			Name:   "1",
+			Status: domain.StatusExited,
 		},
 		{
-			ID:   "2",
-			Name: "2",
-			Container: container.Summary{
-				State: "running",
-			},
+			ID:     "2",
+			Name:   "2",
+			Status: domain.StatusRunning,
 		},
 		{
-			ID:   "3",
-			Name: "3",
-			Container: container.Summary{
-				State: "running",
-			},
+			ID:     "3",
+			Name:   "3",
+			Status: domain.StatusRunning,
 		},
 		{
-			ID:   "4",
-			Name: "4",
-			Container: container.Summary{
-				State: "created",
-			},
+			ID:     "4",
+			Name:   "4",
+			Status: domain.StatusCreated,
 		},
 	}
 }
 
-func assertEqualContainers(t *testing.T, left *commands.Container, right *commands.Container) {
+func assertEqualContainers(t *testing.T, left *domain.Container, right *domain.Container) {
 	t.Helper()
-	assert.Equal(t, left.Container.State, right.Container.State)
-	assert.Equal(t, left.Container.ID, right.Container.ID)
+	assert.Equal(t, left.Status, right.Status)
+	assert.Equal(t, left.ID, right.ID)
 	assert.Equal(t, left.Name, right.Name)
 }
 

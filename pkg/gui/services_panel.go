@@ -54,7 +54,7 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 				if service.Container == nil {
 					return "services-" + service.ID
 				}
-				return "services-" + service.ID + "-" + service.Container.ID + "-" + service.Container.Container.State
+				return "services-" + service.ID + "-" + service.Container.ID + "-" + service.Container.Status.String()
 			},
 		},
 		ListPanel: panels.ListPanel[*commands.Service]{
@@ -318,7 +318,7 @@ func (gui *Gui) handleServiceAttach(g *gocui.Gui, v *gocui.View) error {
 		return gui.createErrorPanel(gui.Tr.NoContainers)
 	}
 
-	c, err := gui.attachToContainer(presentation.ContainerToDomain(service.Container))
+	c, err := gui.attachToContainer(service.Container)
 	if err != nil {
 		return gui.createErrorPanel(err.Error())
 	}

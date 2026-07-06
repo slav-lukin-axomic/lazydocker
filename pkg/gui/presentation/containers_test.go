@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
@@ -28,7 +27,7 @@ func TestGetContainerDisplayStrings(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		container *commands.Container
+		container *domain.Container
 		cpuPerc   *float64
 	}{
 		{
@@ -92,7 +91,7 @@ func TestGetContainerDisplayStrings(t *testing.T) {
 		for _, style := range healthStyles() {
 			t.Run(tc.name+"_"+style, func(t *testing.T) {
 				guiConfig := &config.GuiConfig{ContainerStatusHealthStyle: style}
-				domainCtr := ContainerToDomain(tc.container)
+				domainCtr := tc.container
 				// Stats now live in the StatsMonitor, not on the container, so the
 				// caller populates domain.Container.Stats — mirror that here.
 				if tc.cpuPerc != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/jesseduffield/lazydocker/pkg/adapter/docker"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
@@ -55,7 +56,7 @@ type Gui struct {
 type Panels struct {
 	Projects   *panels.SideListPanel[*commands.Project]
 	Services   *panels.SideListPanel[*commands.Service]
-	Containers *panels.SideListPanel[*commands.Container]
+	Containers *panels.SideListPanel[*domain.Container]
 	Images     *panels.SideListPanel[*commands.Image]
 	Volumes    *panels.SideListPanel[*commands.Volume]
 	Networks   *panels.SideListPanel[*commands.Network]
@@ -301,7 +302,7 @@ func (gui *Gui) setPanels() {
 }
 
 func (gui *Gui) updateContainerDetails() error {
-	return gui.DockerCommand.RefreshContainerDetails(gui.Panels.Containers.List.GetAllItems())
+	return gui.ContainerQueries.RefreshDetails(context.Background(), gui.Panels.Containers.List.GetAllItems())
 }
 
 func (gui *Gui) refresh() {

@@ -19,9 +19,9 @@ import (
 	"github.com/samber/lo"
 )
 
-func (gui *Gui) getContainersPanel() *panels.SideListPanel[*commands.Container] {
+func (gui *Gui) getContainersPanel() *panels.SideListPanel[*domain.Container] {
 	// Standalone containers are containers which are either one-off containers, or whose service is not part of this docker-compose context.
-	isStandaloneContainer := func(container *commands.Container) bool {
+	isStandaloneContainer := func(container *domain.Container) bool {
 		if container.OneOff || container.ServiceName == "" {
 			return true
 		}
@@ -31,10 +31,10 @@ func (gui *Gui) getContainersPanel() *panels.SideListPanel[*commands.Container] 
 		})
 	}
 
-	return &panels.SideListPanel[*commands.Container]{
-		ContextState: &panels.ContextState[*commands.Container]{
-			GetMainTabs: func() []panels.MainTab[*commands.Container] {
-				return []panels.MainTab[*commands.Container]{
+	return &panels.SideListPanel[*domain.Container]{
+		ContextState: &panels.ContextState[*domain.Container]{
+			GetMainTabs: func() []panels.MainTab[*domain.Container] {
+				return []panels.MainTab[*domain.Container]{
 					{
 						Key:    "logs",
 						Title:  gui.Tr.LogsTitle,
@@ -62,28 +62,28 @@ func (gui *Gui) getContainersPanel() *panels.SideListPanel[*commands.Container] 
 					},
 				}
 			},
-			GetItemContextCacheKey: func(container *commands.Container) string {
+			GetItemContextCacheKey: func(container *domain.Container) string {
 				// Including the container state in the cache key so that if the container
 				// restarts we re-read the logs. In the past we've had some glitchiness
 				// where a container restarts but the new logs don't get read.
 				// Note that this might be jarring if we have a lot of logs and the container
 				// restarts a lot, so let's keep an eye on it.
-				return "containers-" + container.ID + "-" + container.Container.State
+				return "containers-" + container.ID + "-" + container.Status.String()
 			},
 		},
-		ListPanel: panels.ListPanel[*commands.Container]{
-			List: panels.NewFilteredList[*commands.Container](),
+		ListPanel: panels.ListPanel[*domain.Container]{
+			List: panels.NewFilteredList[*domain.Container](),
 			View: gui.Views.Containers,
 		},
 		NoItemsMessage: gui.Tr.NoContainers,
 		Gui:            gui.intoInterface(),
 		// sortedContainers returns containers sorted by state if c.SortContainersByState is true (follows 1- running, 2- exited, 3- created)
 		// and sorted by name if c.SortContainersByState is false
-		Sort: func(a *commands.Container, b *commands.Container) bool {
+		Sort: func(a *domain.Container, b *domain.Container) bool {
 			return sortContainers(a, b, gui.Config.UserConfig.Gui.LegacySortContainers)
 		},
-		Filter: func(container *commands.Container) bool {
-			if !gui.State.ShowExitedContainers && container.Container.State == "exited" {
+		Filter: func(container *domain.Container) bool {
+			if !gui.State.ShowExitedContainers && container.Status == domain.StatusExited {
 				return false
 			}
 
@@ -116,41 +116,40 @@ func (gui *Gui) getContainersPanel() *panels.SideListPanel[*commands.Container] 
 
 			return true
 		},
-		GetTableCells: func(container *commands.Container) []string {
-			domainCtr := presentation.ContainerToDomain(container)
+		GetTableCells: func(container *domain.Container) []string {
 			if stats, ok := gui.StatsMonitor.LastStats(container.ID); ok {
-				domainCtr.Stats = &stats.DerivedStats
+				container.Stats = &stats.DerivedStats
 			}
-			return presentation.GetContainerDisplayStrings(&gui.Config.UserConfig.Gui, domainCtr)
+			return presentation.GetContainerDisplayStrings(&gui.Config.UserConfig.Gui, container)
 		},
 	}
 }
 
-var containerStates = map[string]int{
-	"running": 1,
-	"exited":  2,
-	"created": 3,
+var containerStates = map[domain.Status]int{
+	domain.StatusRunning: 1,
+	domain.StatusExited:  2,
+	domain.StatusCreated: 3,
 }
 
-func sortContainers(a *commands.Container, b *commands.Container, legacySort bool) bool {
+func sortContainers(a *domain.Container, b *domain.Container, legacySort bool) bool {
 	if legacySort {
 		return a.Name < b.Name
 	}
 
-	stateLeft := containerStates[a.Container.State]
-	stateRight := containerStates[b.Container.State]
+	stateLeft := containerStates[a.Status]
+	stateRight := containerStates[b.Status]
 	if stateLeft == stateRight {
 		return a.Name < b.Name
 	}
 
-	return containerStates[a.Container.State] < containerStates[b.Container.State]
+	return containerStates[a.Status] < containerStates[b.Status]
 }
 
-func (gui *Gui) renderContainerEnv(container *commands.Container) tasks.TaskFunc {
+func (gui *Gui) renderContainerEnv(container *domain.Container) tasks.TaskFunc {
 	return gui.NewSimpleRenderStringTask(func() string { return gui.containerEnv(container) })
 }
 
-func (gui *Gui) containerEnv(container *commands.Container) string {
+func (gui *Gui) containerEnv(container *domain.Container) string {
 	if !container.DetailsLoaded() {
 		return gui.Tr.WaitingForContainerInfo
 	}
@@ -174,11 +173,11 @@ func (gui *Gui) containerEnv(container *commands.Container) string {
 	return output
 }
 
-func (gui *Gui) renderContainerConfig(container *commands.Container) tasks.TaskFunc {
+func (gui *Gui) renderContainerConfig(container *domain.Container) tasks.TaskFunc {
 	return gui.NewSimpleRenderStringTask(func() string { return gui.containerConfigStr(container) })
 }
 
-func (gui *Gui) containerConfigStr(container *commands.Container) string {
+func (gui *Gui) containerConfigStr(container *domain.Container) string {
 	if !container.DetailsLoaded() {
 		return gui.Tr.WaitingForContainerInfo
 	}
@@ -193,7 +192,7 @@ func (gui *Gui) containerConfigStr(container *commands.Container) string {
 	return presentation.RenderContainerConfig(inspect, rawYAML)
 }
 
-func (gui *Gui) renderContainerStats(container *commands.Container) tasks.TaskFunc {
+func (gui *Gui) renderContainerStats(container *domain.Container) tasks.TaskFunc {
 	return gui.NewTickerTask(TickerTaskOpts{
 		Func: func(ctx context.Context, notifyStopped chan struct{}) {
 			contents, err := presentation.RenderStats(gui.Config.UserConfig, gui.StatsMonitor.History(container.ID), gui.Views.Main.Width())
@@ -210,7 +209,7 @@ func (gui *Gui) renderContainerStats(container *commands.Container) tasks.TaskFu
 	})
 }
 
-func (gui *Gui) renderContainerTop(ctr *commands.Container) tasks.TaskFunc {
+func (gui *Gui) renderContainerTop(ctr *domain.Container) tasks.TaskFunc {
 	return gui.NewTickerTask(TickerTaskOpts{
 		Func: func(ctx context.Context, notifyStopped chan struct{}) {
 			result, err := gui.ContainerQueries.Top(ctx, ctr.ID)
@@ -244,9 +243,11 @@ func (gui *Gui) refreshContainersAndServices() error {
 	originalSelectedLineIdx := gui.Panels.Services.SelectedIdx
 	selectedService, isServiceSelected := gui.Panels.Services.List.TryGet(originalSelectedLineIdx)
 
-	containers, services, err := gui.DockerCommand.RefreshContainersAndServices(
-		gui.Panels.Containers.List.GetAllItems(),
-	)
+	containers, err := gui.ContainerQueries.List(context.Background())
+	if err != nil {
+		return err
+	}
+	services, err := gui.DockerCommand.DeriveServices(containers)
 	if err != nil {
 		return err
 	}
@@ -328,9 +329,9 @@ func (gui *Gui) handleContainersRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 	})
 }
 
-func (gui *Gui) PauseContainer(container *commands.Container) error {
+func (gui *Gui) PauseContainer(container *domain.Container) error {
 	return gui.WithWaitingStatus(gui.Tr.PausingStatus, func() (err error) {
-		if container.Details.State.Paused {
+		if container.DetailsLoaded() && container.Details.Paused {
 			err = gui.ContainerCommands.Unpause(context.Background(), container.ID)
 		} else {
 			err = gui.ContainerCommands.Pause(context.Background(), container.ID)
@@ -391,7 +392,7 @@ func (gui *Gui) handleContainerAttach(g *gocui.Gui, v *gocui.View) error {
 		return nil
 	}
 
-	c, err := gui.attachToContainer(presentation.ContainerToDomain(ctr))
+	c, err := gui.attachToContainer(ctr)
 	if err != nil {
 		return gui.createErrorPanel(err.Error())
 	}
@@ -450,7 +451,7 @@ func (gui *Gui) handleContainersExecShell(g *gocui.Gui, v *gocui.View) error {
 	return gui.containerExecShell(ctr)
 }
 
-func (gui *Gui) containerExecShell(container *commands.Container) error {
+func (gui *Gui) containerExecShell(container *domain.Container) error {
 	commandObject := gui.DockerCommand.NewCommandObject(commands.CommandObject{
 		Container: container,
 	})
@@ -537,13 +538,13 @@ func (gui *Gui) handleContainersOpenInBrowserCommand(g *gocui.Gui, v *gocui.View
 	return gui.openContainerInBrowser(ctr)
 }
 
-func (gui *Gui) openContainerInBrowser(ctr *commands.Container) error {
+func (gui *Gui) openContainerInBrowser(ctr *domain.Container) error {
 	// skip if no any ports
-	if len(ctr.Container.Ports) == 0 {
+	if len(ctr.Ports) == 0 {
 		return nil
 	}
 	// skip if the first port is not published
-	port := ctr.Container.Ports[0]
+	port := ctr.Ports[0]
 	if port.IP == "" {
 		return nil
 	}

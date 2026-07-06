@@ -130,7 +130,7 @@ customCommands:
 
 You may use the following go templates (such as `{{ .Container.ID }}` above) in your commands:
 - `{{ .DockerCompose }}`: the docker compose command (default: `docker-compose`)
-- [`{{ .Container }}`](https://pkg.go.dev/github.com/jesseduffield/lazydocker@v0.20.0/pkg/commands#Container) and its fields. For example: `{{ .Container.Container.ImageID }}`
+- `{{ .Container }}` with the following fields: `{{ .Container.ID }}`, `{{ .Container.Name }}`, `{{ .Container.Image }}`, `{{ .Container.ServiceName }}`, `{{ .Container.ProjectName }}`, `{{ .Container.Status }}`, `{{ .Container.Labels }}`, `{{ .Container.Ports }}`. Note that the raw Docker inspect fields that were previously reachable via `{{ .Container.Container.* }}` and `{{ .Container.Details.* }}` are no longer exposed.
 - [`{{ .Service }}`](https://pkg.go.dev/github.com/jesseduffield/lazydocker@v0.20.0/pkg/commands#Service) and its fields. For example: `{{ .Service.Name }}`
 
 ## Replacements

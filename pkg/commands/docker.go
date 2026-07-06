@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 	ogLog "log"
@@ -10,16 +9,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 
 	cliconfig "github.com/docker/cli/cli/config"
 	ddocker "github.com/docker/cli/cli/context/docker"
 	ctxstore "github.com/docker/cli/cli/context/store"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/imdario/mergo"
 	"github.com/jesseduffield/lazydocker/pkg/commands/ssh"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sasha-s/go-deadlock"
@@ -41,7 +39,6 @@ type DockerCommand struct {
 	// LocalProjectName is the compose project name for the directory where lazydocker was launched.
 	LocalProjectName string
 	ErrorChan        chan error
-	ContainerMutex   deadlock.Mutex
 	ServiceMutex     deadlock.Mutex
 
 	Closers []io.Closer
@@ -58,7 +55,7 @@ type LimitedDockerCommand interface {
 type CommandObject struct {
 	DockerCompose string
 	Service       *Service
-	Container     *Container
+	Container     *domain.Container
 	Image         *Image
 	Volume        *Volume
 	Network       *Network
@@ -154,7 +151,7 @@ func NewDockerCommand(log *logrus.Entry, osCommand *OSCommand, tr *i18n.Translat
 	// When the user passes -p outside of a compose directory, treat it as the
 	// local project so the project/services panels still appear and filtering
 	// is applied. Inside a compose dir, LocalProjectName is derived from
-	// container labels later in RefreshContainersAndServices.
+	// container labels later in DeriveServices.
 	if !dockerCommand.InDockerComposeProject && config.ProjectName != "" {
 		dockerCommand.LocalProjectName = config.ProjectName
 	}
@@ -186,20 +183,20 @@ func (c *DockerCommand) Close() error {
 	return utils.CloseMany(c.Closers)
 }
 
-func (c *DockerCommand) RefreshContainersAndServices(currentContainers []*Container) ([]*Container, []*Service, error) {
+// DeriveServices builds the service list from an already-fetched container set.
+// It is the service-derivation half of the pre-migration
+// RefreshContainersAndServices; discovery of the containers themselves now lives
+// in the port-backed usecase.ContainerQueries.
+func (c *DockerCommand) DeriveServices(containers []*domain.Container) ([]*Service, error) {
 	c.ServiceMutex.Lock()
 	defer c.ServiceMutex.Unlock()
-
-	containers, err := c.GetContainers(currentContainers)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	// Derive services from container labels (covers all projects)
 	services := c.GetServicesFromContainers(containers)
 
 	var composeServices []*Service
 	if c.InDockerComposeProject {
+		var err error
 		composeServices, err = c.GetServices()
 		if err != nil {
 			c.Log.Warn("Failed to get compose services: " + err.Error())
@@ -239,11 +236,11 @@ func (c *DockerCommand) RefreshContainersAndServices(currentContainers []*Contai
 
 	c.assignContainersToServices(containers, services)
 
-	return containers, services, nil
+	return services, nil
 }
 
 // GetServicesFromContainers derives services from container labels for all projects
-func (c *DockerCommand) GetServicesFromContainers(containers []*Container) []*Service {
+func (c *DockerCommand) GetServicesFromContainers(containers []*domain.Container) []*Service {
 	// Use project+service as key to avoid duplicates
 	type serviceKey struct {
 		project string
@@ -307,7 +304,7 @@ func (c *DockerCommand) mergeServices(containerServices []*Service, composeServi
 }
 
 // GetProjectNames returns all unique project names from containers
-func (c *DockerCommand) GetProjectNames(containers []*Container) []string {
+func (c *DockerCommand) GetProjectNames(containers []*domain.Container) []string {
 	seen := make(map[string]bool)
 	var names []string
 	for _, ctr := range containers {
@@ -320,7 +317,7 @@ func (c *DockerCommand) GetProjectNames(containers []*Container) []string {
 	return names
 }
 
-func (c *DockerCommand) assignContainersToServices(containers []*Container, services []*Service) {
+func (c *DockerCommand) assignContainersToServices(containers []*domain.Container, services []*Service) {
 L:
 	for _, service := range services {
 		for _, ctr := range containers {
@@ -331,65 +328,6 @@ L:
 		}
 		service.Container = nil
 	}
-}
-
-// GetContainers gets the docker containers
-func (c *DockerCommand) GetContainers(existingContainers []*Container) ([]*Container, error) {
-	c.ContainerMutex.Lock()
-	defer c.ContainerMutex.Unlock()
-
-	containers, err := c.Client.ContainerList(context.Background(), container.ListOptions{All: true})
-	if err != nil {
-		return nil, err
-	}
-
-	ownContainers := make([]*Container, len(containers))
-
-	for i, ctr := range containers {
-		var newContainer *Container
-
-		// check if we already have data stored against the container
-		for _, existingContainer := range existingContainers {
-			if existingContainer.ID == ctr.ID {
-				newContainer = existingContainer
-				break
-			}
-		}
-
-		// initialise the container if it's completely new
-		if newContainer == nil {
-			newContainer = &Container{
-				ID:            ctr.ID,
-				Client:        c.Client,
-				OSCommand:     c.OSCommand,
-				Log:           c.Log,
-				DockerCommand: c,
-				Tr:            c.Tr,
-			}
-		}
-
-		newContainer.Container = ctr
-		// if the container is made with a name label we will use that
-		if name, ok := ctr.Labels["name"]; ok {
-			newContainer.Name = name
-		} else {
-			if len(ctr.Names) > 0 {
-				newContainer.Name = strings.TrimLeft(ctr.Names[0], "/")
-			} else {
-				newContainer.Name = ctr.ID
-			}
-		}
-		newContainer.ServiceName = ctr.Labels["com.docker.compose.service"]
-		newContainer.ProjectName = ctr.Labels["com.docker.compose.project"]
-		newContainer.ContainerNumber = ctr.Labels["com.docker.compose.container"]
-		newContainer.OneOff = ctr.Labels["com.docker.compose.oneoff"] == "True"
-
-		ownContainers[i] = newContainer
-	}
-
-	c.SetContainerDetails(ownContainers)
-
-	return ownContainers, nil
 }
 
 // GetServices gets services
@@ -422,35 +360,6 @@ func (c *DockerCommand) GetServices() ([]*Service, error) {
 	}
 
 	return services, nil
-}
-
-func (c *DockerCommand) RefreshContainerDetails(containers []*Container) error {
-	c.ContainerMutex.Lock()
-	defer c.ContainerMutex.Unlock()
-
-	c.SetContainerDetails(containers)
-
-	return nil
-}
-
-// Attaches the details returned from docker inspect to each of the containers
-// this contains a bit more info than what you get from the go-docker client
-func (c *DockerCommand) SetContainerDetails(containers []*Container) {
-	wg := sync.WaitGroup{}
-	for _, ctr := range containers {
-		ctr := ctr
-		wg.Add(1)
-		go func() {
-			details, err := c.Client.ContainerInspect(context.Background(), ctr.ID)
-			if err != nil {
-				c.Log.Error(err)
-			} else {
-				ctr.Details = details
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
 }
 
 // ViewAllLogs attaches to a subprocess viewing all the logs from docker-compose

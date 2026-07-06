@@ -9,13 +9,12 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/tasks"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 )
 
-func (gui *Gui) renderContainerLogsToMain(container *commands.Container) tasks.TaskFunc {
+func (gui *Gui) renderContainerLogsToMain(container *domain.Container) tasks.TaskFunc {
 	return gui.NewTickerTask(TickerTaskOpts{
 		Func: func(ctx context.Context, notifyStopped chan struct{}) {
 			gui.renderContainerLogsToMainAux(container, ctx, notifyStopped)
@@ -28,7 +27,7 @@ func (gui *Gui) renderContainerLogsToMain(container *commands.Container) tasks.T
 	})
 }
 
-func (gui *Gui) renderContainerLogsToMainAux(container *commands.Container, ctx context.Context, notifyStopped chan struct{}) {
+func (gui *Gui) renderContainerLogsToMainAux(container *domain.Container, ctx context.Context, notifyStopped chan struct{}) {
 	gui.clearMainView()
 	defer func() {
 		notifyStopped <- struct{}{}
@@ -62,7 +61,7 @@ func (gui *Gui) renderContainerLogsToMainAux(container *commands.Container, ctx 
 	}
 }
 
-func (gui *Gui) renderLogsToStdout(container *commands.Container) {
+func (gui *Gui) renderLogsToStdout(container *domain.Container) {
 	stop := make(chan os.Signal, 1)
 	defer signal.Stop(stop)
 
@@ -103,7 +102,7 @@ func (gui *Gui) promptToReturn() {
 	}
 }
 
-func (gui *Gui) writeContainerLogs(ctr *commands.Container, ctx context.Context, writer io.Writer) error {
+func (gui *Gui) writeContainerLogs(ctr *domain.Container, ctx context.Context, writer io.Writer) error {
 	return gui.ContainerQueries.StreamLogs(ctx, ctr.ID, domain.LogOptions{
 		Timestamps: gui.Config.UserConfig.Logs.Timestamps,
 		Since:      gui.Config.UserConfig.Logs.Since,
