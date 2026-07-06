@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
@@ -24,14 +23,14 @@ func TestRenderStats(t *testing.T) {
 	userConfig := config.GetDefaultConfig()
 
 	base := time.Now().Add(-30 * time.Second)
-	ctr := &commands.Container{Name: "web"}
 	// Fixed-shape history so the plotted graph is deterministic.
+	var history []*domain.RecordedStats
 	for i, cpu := range []float64{10, 40, 25} {
 		stats := domain.ContainerStats{}
 		stats.PidsStats.Current = 7
 		stats.Networks.Eth0.RxBytes = 2048
 		stats.Networks.Eth0.TxBytes = 4096
-		ctr.StatHistory = append(ctr.StatHistory, &domain.RecordedStats{
+		history = append(history, &domain.RecordedStats{
 			ClientStats: stats,
 			DerivedStats: domain.DerivedStats{
 				CPUPercentage:    cpu,
@@ -41,7 +40,7 @@ func TestRenderStats(t *testing.T) {
 		})
 	}
 
-	got, err := RenderStats(&userConfig, ctr, 80)
+	got, err := RenderStats(&userConfig, history, 80)
 	if err != nil {
 		t.Fatalf("RenderStats returned error: %v", err)
 	}
@@ -53,9 +52,8 @@ func TestRenderStats(t *testing.T) {
 
 func TestRenderStatsNoHistory(t *testing.T) {
 	userConfig := config.GetDefaultConfig()
-	ctr := &commands.Container{Name: "web"}
 
-	got, err := RenderStats(&userConfig, ctr, 80)
+	got, err := RenderStats(&userConfig, nil, 80)
 	if err != nil {
 		t.Fatalf("RenderStats returned error: %v", err)
 	}

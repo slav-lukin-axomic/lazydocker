@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/fatih/color"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
-	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -60,14 +59,6 @@ func withDetails(c *commands.Container, state container.State) *commands.Contain
 	c.Details = container.InspectResponse{
 		ContainerJSONBase: &container.ContainerJSONBase{State: &state},
 	}
-	return c
-}
-
-// withCPUStats appends a single recorded stat with the given CPU percentage.
-func withCPUStats(c *commands.Container, cpuPercentage float64) *commands.Container {
-	c.StatHistory = append(c.StatHistory, &domain.RecordedStats{
-		DerivedStats: domain.DerivedStats{CPUPercentage: cpuPercentage},
-	})
 	return c
 }
 

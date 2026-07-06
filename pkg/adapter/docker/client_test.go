@@ -3,6 +3,8 @@ package docker
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
@@ -254,4 +256,55 @@ func TestPruneContainers(t *testing.T) {
 	err := NewAdapter(fake).PruneContainers(context.Background())
 	assert.NoError(t, err)
 	assert.True(t, called)
+}
+
+func TestStreamStatsDecodesSamples(t *testing.T) {
+	t.Parallel()
+
+	// Two JSON-lines samples; the second has a CPU delta so the derived CPU
+	// percentage is non-zero, proving StreamStats runs the Calculate* derivation.
+	body := `{"pids_stats":{"current":7}}` + "\n" +
+		`{"cpu_stats":{"cpu_usage":{"total_usage":200},"system_cpu_usage":1000},` +
+		`"precpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":600},` +
+		`"memory_stats":{"usage":50,"limit":200}}` + "\n"
+
+	var gotID string
+	var gotStream bool
+	fake := &fakeAPIClient{
+		containerStatsFn: func(_ context.Context, id string, stream bool) (container.StatsResponseReader, error) {
+			gotID, gotStream = id, stream
+			return container.StatsResponseReader{Body: io.NopCloser(strings.NewReader(body))}, nil
+		},
+	}
+
+	var samples []*domain.RecordedStats
+	err := NewAdapter(fake).StreamStats(context.Background(), "abc", func(rs *domain.RecordedStats) {
+		samples = append(samples, rs)
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "abc", gotID)
+	assert.True(t, gotStream, "StreamStats must request a streaming reader")
+	assert.Len(t, samples, 2)
+	assert.Equal(t, 7, samples[0].ClientStats.PidsStats.Current)
+	// (200-100)*100 / (1000-600) = 25
+	assert.Equal(t, 25.0, samples[1].DerivedStats.CPUPercentage)
+	// 50*100 / 200 = 25
+	assert.Equal(t, 25.0, samples[1].DerivedStats.MemoryPercentage)
+}
+
+func TestStreamStatsPropagatesOpenError(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("stats stream unavailable")
+	fake := &fakeAPIClient{
+		containerStatsFn: func(context.Context, string, bool) (container.StatsResponseReader, error) {
+			return container.StatsResponseReader{}, sentinel
+		},
+	}
+
+	called := false
+	err := NewAdapter(fake).StreamStats(context.Background(), "abc", func(*domain.RecordedStats) { called = true })
+	assert.Same(t, sentinel, err)
+	assert.False(t, called)
 }

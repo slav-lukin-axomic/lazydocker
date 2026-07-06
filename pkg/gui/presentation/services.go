@@ -4,10 +4,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 )
 
-func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *commands.Service) []string {
+func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *commands.Service, stats *domain.DerivedStats) []string {
 	if service.Container == nil {
 		var containerState string
 		switch guiConfig.ContainerStatusHealthStyle {
@@ -32,6 +33,9 @@ func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *commands.Ser
 	}
 
 	container := ContainerToDomain(service.Container)
+	// Stats live in the StatsMonitor now, so the caller passes the latest sample
+	// (nil when none) rather than the bridge populating it.
+	container.Stats = stats
 	return []string{
 		getContainerDisplayStatus(guiConfig, container),
 		getContainerDisplaySubstatus(guiConfig, container),

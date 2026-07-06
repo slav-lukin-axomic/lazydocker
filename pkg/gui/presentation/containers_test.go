@@ -7,11 +7,15 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
 
 // colSep joins the display columns for golden capture. Using the ASCII unit
 // separator keeps the golden readable while never colliding with rendered text.
 const colSep = "\x1f"
+
+// cpu returns a pointer to a CPU percentage, for the optional cpuPerc test field.
+func cpu(perc float64) *float64 { return &perc }
 
 func healthStyles() []string {
 	return []string{"long", "short", "icon"}
@@ -25,6 +29,7 @@ func TestGetContainerDisplayStrings(t *testing.T) {
 	cases := []struct {
 		name      string
 		container *commands.Container
+		cpuPerc   *float64
 	}{
 		{
 			name:      "running_no_details",
@@ -48,15 +53,18 @@ func TestGetContainerDisplayStrings(t *testing.T) {
 		},
 		{
 			name:      "running_with_cpu",
-			container: withCPUStats(withDetails(makeContainer("web", runningSummary()), healthy("healthy")), 12.5),
+			container: withDetails(makeContainer("web", runningSummary()), healthy("healthy")),
+			cpuPerc:   cpu(12.5),
 		},
 		{
 			name:      "running_high_cpu",
-			container: withCPUStats(withDetails(makeContainer("web", runningSummary()), healthy("healthy")), 95.0),
+			container: withDetails(makeContainer("web", runningSummary()), healthy("healthy")),
+			cpuPerc:   cpu(95.0),
 		},
 		{
 			name:      "running_mid_cpu",
-			container: withCPUStats(withDetails(makeContainer("web", runningSummary()), healthy("healthy")), 70.0),
+			container: withDetails(makeContainer("web", runningSummary()), healthy("healthy")),
+			cpuPerc:   cpu(70.0),
 		},
 		{
 			name:      "exited_zero_no_details",
@@ -84,7 +92,13 @@ func TestGetContainerDisplayStrings(t *testing.T) {
 		for _, style := range healthStyles() {
 			t.Run(tc.name+"_"+style, func(t *testing.T) {
 				guiConfig := &config.GuiConfig{ContainerStatusHealthStyle: style}
-				got := strings.Join(GetContainerDisplayStrings(guiConfig, ContainerToDomain(tc.container)), colSep)
+				domainCtr := ContainerToDomain(tc.container)
+				// Stats now live in the StatsMonitor, not on the container, so the
+				// caller populates domain.Container.Stats — mirror that here.
+				if tc.cpuPerc != nil {
+					domainCtr.Stats = &domain.DerivedStats{CPUPercentage: *tc.cpuPerc}
+				}
+				got := strings.Join(GetContainerDisplayStrings(guiConfig, domainCtr), colSep)
 				assertGolden(t, "containers_"+tc.name+"_"+style, got)
 			})
 		}

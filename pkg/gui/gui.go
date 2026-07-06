@@ -16,7 +16,6 @@ import (
 	"github.com/jesseduffield/lazydocker/pkg/adapter/docker"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
-	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
@@ -33,6 +32,7 @@ type Gui struct {
 	DockerCommand     *commands.DockerCommand
 	ContainerCommands *usecase.ContainerCommands
 	ContainerQueries  *usecase.ContainerQueries
+	StatsMonitor      *usecase.StatsMonitor
 	OSCommand         *commands.OSCommand
 	State             guiState
 	Config            *config.AppConfig
@@ -82,7 +82,6 @@ type guiState struct {
 	Platform         commands.Platform
 	Panels           *panelStates
 	SubProcessOutput string
-	Stats            map[string]domain.ContainerStats
 
 	// if true, we show containers with an 'exited' status in the containers panel
 	ShowExitedContainers bool
@@ -151,6 +150,7 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 		DockerCommand:     dockerCommand,
 		ContainerCommands: usecase.NewContainerCommands(dockerAdapter),
 		ContainerQueries:  usecase.NewContainerQueries(dockerAdapter),
+		StatsMonitor:      usecase.NewStatsMonitor(dockerAdapter, config.UserConfig.Stats.MaxDuration),
 		OSCommand:         oSCommand,
 		State:             initialState,
 		Config:            config,
@@ -492,10 +492,14 @@ func (gui *Gui) monitorContainerStats(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			for _, container := range gui.Panels.Containers.List.GetAllItems() {
-				if !container.MonitoringStats {
-					go gui.DockerCommand.CreateClientStatMonitor(container)
-				}
+			containers := gui.Panels.Containers.List.GetAllItems()
+			ids := make([]string, len(containers))
+			for i, container := range containers {
+				ids[i] = container.ID
+			}
+			gui.StatsMonitor.Prune(ids)
+			for _, id := range ids {
+				gui.StatsMonitor.EnsureMonitoring(ctx, id)
 			}
 		}
 	}

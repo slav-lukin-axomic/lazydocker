@@ -10,23 +10,23 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/jesseduffield/asciigraph"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/mcuadros/go-lookup"
 	"github.com/samber/lo"
 )
 
-func RenderStats(userConfig *config.UserConfig, container *commands.Container, viewWidth int) (string, error) {
-	stats, ok := container.GetLastStats()
-	if !ok {
+func RenderStats(userConfig *config.UserConfig, history []*domain.RecordedStats, viewWidth int) (string, error) {
+	if len(history) == 0 {
 		return "", nil
 	}
+	stats := history[len(history)-1]
 
 	graphSpecs := userConfig.Stats.Graphs
 	graphs := make([]string, len(graphSpecs))
 	for i, spec := range graphSpecs {
-		graph, err := plotGraph(container, spec, viewWidth-10)
+		graph, err := plotGraph(history, spec, viewWidth-10)
 		if err != nil {
 			return "", err
 		}
@@ -53,14 +53,12 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 	return contents, nil
 }
 
-// plotGraph returns the plotted graph based on the graph spec and the stat history
-func plotGraph(container *commands.Container, spec config.GraphConfig, width int) (string, error) {
-	container.StatsMutex.Lock()
-	defer container.StatsMutex.Unlock()
+// plotGraph returns the plotted graph based on the graph spec and the stat
+// history. history is a caller-owned snapshot, so no locking is needed here.
+func plotGraph(history []*domain.RecordedStats, spec config.GraphConfig, width int) (string, error) {
+	data := make([]float64, len(history))
 
-	data := make([]float64, len(container.StatHistory))
-
-	for i, stats := range container.StatHistory {
+	for i, stats := range history {
 		value, err := lookup.LookupString(stats, spec.StatPath)
 		if err != nil {
 			return "Could not find key: " + spec.StatPath, nil
@@ -92,7 +90,7 @@ func plotGraph(container *commands.Container, spec config.GraphConfig, width int
 		"%s: %0.2f (%v)",
 		spec.Caption,
 		data[len(data)-1],
-		time.Since(container.StatHistory[0].RecordedAt).Round(time.Second),
+		time.Since(history[0].RecordedAt).Round(time.Second),
 	)
 
 	return asciigraph.Plot(

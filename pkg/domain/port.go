@@ -41,4 +41,7 @@ type DockerAPI interface {
 	RemoveContainer(ctx context.Context, id string, opts RemoveOptions) error
 	ContainerTop(ctx context.Context, id string) (TopResult, error)
 	PruneContainers(ctx context.Context) error
+	// StreamStats streams recorded stats samples for a container until the stream
+	// ends or ctx is cancelled, invoking onSample for each. It blocks.
+	StreamStats(ctx context.Context, id string, onSample func(*RecordedStats)) error
 }

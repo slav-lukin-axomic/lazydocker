@@ -116,7 +116,11 @@ func (gui *Gui) getContainersPanel() *panels.SideListPanel[*commands.Container] 
 			return true
 		},
 		GetTableCells: func(container *commands.Container) []string {
-			return presentation.GetContainerDisplayStrings(&gui.Config.UserConfig.Gui, presentation.ContainerToDomain(container))
+			domainCtr := presentation.ContainerToDomain(container)
+			if stats, ok := gui.StatsMonitor.LastStats(container.ID); ok {
+				domainCtr.Stats = &stats.DerivedStats
+			}
+			return presentation.GetContainerDisplayStrings(&gui.Config.UserConfig.Gui, domainCtr)
 		},
 	}
 }
@@ -184,7 +188,7 @@ func (gui *Gui) containerConfigStr(container *commands.Container) string {
 func (gui *Gui) renderContainerStats(container *commands.Container) tasks.TaskFunc {
 	return gui.NewTickerTask(TickerTaskOpts{
 		Func: func(ctx context.Context, notifyStopped chan struct{}) {
-			contents, err := presentation.RenderStats(gui.Config.UserConfig, container, gui.Views.Main.Width())
+			contents, err := presentation.RenderStats(gui.Config.UserConfig, gui.StatsMonitor.History(container.ID), gui.Views.Main.Width())
 			if err != nil {
 				_ = gui.createErrorPanel(err.Error())
 			}

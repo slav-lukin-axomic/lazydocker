@@ -9,10 +9,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/go-errors/errors"
-	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
-	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/xerrors"
 )
@@ -24,20 +22,16 @@ type Container struct {
 	ContainerNumber string // might make this an int in the future if need be
 
 	// OneOff tells us if the container is just a job container or is actually bound to the service
-	OneOff          bool
-	ProjectName     string
-	ID              string
-	Container       container.Summary
-	Client          DockerClient
-	OSCommand       *OSCommand
-	Log             *logrus.Entry
-	StatHistory     []*domain.RecordedStats
-	Details         container.InspectResponse
-	MonitoringStats bool
-	DockerCommand   LimitedDockerCommand
-	Tr              *i18n.TranslationSet
-
-	StatsMutex deadlock.Mutex
+	OneOff        bool
+	ProjectName   string
+	ID            string
+	Container     container.Summary
+	Client        DockerClient
+	OSCommand     *OSCommand
+	Log           *logrus.Entry
+	Details       container.InspectResponse
+	DockerCommand LimitedDockerCommand
+	Tr            *i18n.TranslationSet
 }
 
 // Remove removes the container

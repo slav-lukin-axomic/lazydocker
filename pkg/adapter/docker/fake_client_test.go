@@ -22,6 +22,7 @@ type fakeAPIClient struct {
 	containerRemoveFn  func(ctx context.Context, containerID string, options container.RemoveOptions) error
 	containerTopFn     func(ctx context.Context, containerID string, arguments []string) (container.TopResponse, error)
 	containersPruneFn  func(ctx context.Context, pruneFilters filters.Args) (container.PruneReport, error)
+	containerStatsFn   func(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
 }
 
 var _ apiClient = (*fakeAPIClient)(nil)
@@ -94,4 +95,11 @@ func (f *fakeAPIClient) ContainersPrune(ctx context.Context, pruneFilters filter
 		return f.containersPruneFn(ctx, pruneFilters)
 	}
 	return container.PruneReport{}, nil
+}
+
+func (f *fakeAPIClient) ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error) {
+	if f.containerStatsFn != nil {
+		return f.containerStatsFn(ctx, containerID, stream)
+	}
+	return container.StatsResponseReader{}, nil
 }

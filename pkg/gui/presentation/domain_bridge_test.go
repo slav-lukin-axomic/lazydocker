@@ -14,7 +14,7 @@ func TestContainerToDomain(t *testing.T) {
 		assert.Nil(t, ContainerToDomain(nil))
 	})
 
-	t.Run("details, stats and ports map field-by-field", func(t *testing.T) {
+	t.Run("details and ports map field-by-field", func(t *testing.T) {
 		c := &commands.Container{
 			ID:              "abc123",
 			Name:            "web",
@@ -43,13 +43,13 @@ func TestContainerToDomain(t *testing.T) {
 				},
 				Config: &container.Config{OpenStdin: true},
 			},
-			StatHistory: []*domain.RecordedStats{
-				{DerivedStats: domain.DerivedStats{CPUPercentage: 12.5, MemoryPercentage: 42.0}},
-			},
 		}
 
 		got := ContainerToDomain(c)
 
+		// The bridge no longer populates Stats — history lives in the
+		// StatsMonitor and callers set domain.Container.Stats from it — so Stats
+		// stays nil here.
 		want := &domain.Container{
 			ID:              "abc123",
 			Name:            "web",
@@ -72,13 +72,12 @@ func TestContainerToDomain(t *testing.T) {
 				Health:    domain.HealthHealthy,
 				OpenStdin: true,
 			},
-			Stats: &domain.DerivedStats{CPUPercentage: 12.5, MemoryPercentage: 42.0},
 		}
 
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("no details leaves Details and Stats nil", func(t *testing.T) {
+	t.Run("no details leaves Details nil", func(t *testing.T) {
 		c := &commands.Container{
 			ID:   "noinspect",
 			Name: "db",

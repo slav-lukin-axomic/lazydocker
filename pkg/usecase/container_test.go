@@ -25,6 +25,7 @@ type fakeDockerAPI struct {
 	removeContainerFn  func(ctx context.Context, id string, opts domain.RemoveOptions) error
 	containerTopFn     func(ctx context.Context, id string) (domain.TopResult, error)
 	pruneContainersFn  func(ctx context.Context) error
+	streamStatsFn      func(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error
 }
 
 var _ domain.DockerAPI = (*fakeDockerAPI)(nil)
@@ -95,6 +96,13 @@ func (f *fakeDockerAPI) ContainerTop(ctx context.Context, id string) (domain.Top
 func (f *fakeDockerAPI) PruneContainers(ctx context.Context) error {
 	if f.pruneContainersFn != nil {
 		return f.pruneContainersFn(ctx)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) StreamStats(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error {
+	if f.streamStatsFn != nil {
+		return f.streamStatsFn(ctx, id, onSample)
 	}
 	return nil
 }

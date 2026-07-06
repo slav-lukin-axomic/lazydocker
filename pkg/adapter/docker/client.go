@@ -1,9 +1,12 @@
 package docker
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -32,6 +35,7 @@ type apiClient interface {
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
 	ContainerTop(ctx context.Context, containerID string, arguments []string) (container.TopResponse, error)
 	ContainersPrune(ctx context.Context, pruneFilters filters.Args) (container.PruneReport, error)
+	ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
 }
 
 var _ apiClient = (*client.Client)(nil)
@@ -129,4 +133,35 @@ func (a *Adapter) ContainerTop(ctx context.Context, id string) (domain.TopResult
 func (a *Adapter) PruneContainers(ctx context.Context) error {
 	_, err := a.client.ContainersPrune(ctx, filters.Args{})
 	return err
+}
+
+// StreamStats opens the Docker stats stream for a container and invokes onSample
+// for each decoded sample until the stream ends or ctx is cancelled. It derives
+// CPU/memory percentages the same way the pre-migration
+// DockerCommand.CreateClientStatMonitor did, including ignoring per-sample decode
+// errors (a malformed line yields a zero-valued sample rather than aborting the
+// stream). It returns the stream-open error or the scanner's terminal error.
+func (a *Adapter) StreamStats(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error {
+	resp, err := a.client.ContainerStats(ctx, id, true)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var stats domain.ContainerStats
+		_ = json.Unmarshal(scanner.Bytes(), &stats)
+
+		onSample(&domain.RecordedStats{
+			ClientStats: stats,
+			DerivedStats: domain.DerivedStats{
+				CPUPercentage:    stats.CalculateContainerCPUPercentage(),
+				MemoryPercentage: stats.CalculateContainerMemoryUsage(),
+			},
+			RecordedAt: time.Now(),
+		})
+	}
+
+	return scanner.Err()
 }

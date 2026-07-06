@@ -48,10 +48,6 @@ func ContainerToDomain(c *commands.Container) *domain.Container {
 		out.Details = details
 	}
 
-	if stats, ok := c.GetLastStats(); ok {
-		out.Stats = &stats.DerivedStats
-	}
-
 	return out
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
@@ -87,7 +88,13 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 			return service.ProjectName == selectedProject
 		},
 		GetTableCells: func(service *commands.Service) []string {
-			return presentation.GetServiceDisplayStrings(&gui.Config.UserConfig.Gui, service)
+			var stats *domain.DerivedStats
+			if service.Container != nil {
+				if last, ok := gui.StatsMonitor.LastStats(service.Container.ID); ok {
+					stats = &last.DerivedStats
+				}
+			}
+			return presentation.GetServiceDisplayStrings(&gui.Config.UserConfig.Gui, service, stats)
 		},
 		Hide: func() bool {
 			return !gui.DockerCommand.IsProjectScoped()
