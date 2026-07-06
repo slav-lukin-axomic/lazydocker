@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
@@ -40,6 +41,9 @@ type apiClient interface {
 	ContainersPrune(ctx context.Context, pruneFilters filters.Args) (container.PruneReport, error)
 	ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
 	ContainerLogs(ctx context.Context, container string, options container.LogsOptions) (io.ReadCloser, error)
+	NetworkList(ctx context.Context, options network.ListOptions) ([]network.Summary, error)
+	NetworkRemove(ctx context.Context, networkID string) error
+	NetworksPrune(ctx context.Context, pruneFilters filters.Args) (network.PruneReport, error)
 }
 
 var _ apiClient = (*client.Client)(nil)
@@ -153,6 +157,33 @@ func (a *Adapter) ContainerTop(ctx context.Context, id string) (domain.TopResult
 // PruneContainers removes stopped containers.
 func (a *Adapter) PruneContainers(ctx context.Context) error {
 	_, err := a.client.ContainersPrune(ctx, filters.Args{})
+	return err
+}
+
+// ListNetworks returns all networks mapped to domain types, preserving the order
+// the Engine reports them (the panel owns sorting).
+func (a *Adapter) ListNetworks(ctx context.Context) ([]domain.Network, error) {
+	summaries, err := a.client.NetworkList(ctx, network.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	networks := make([]domain.Network, len(summaries))
+	for i, summary := range summaries {
+		networks[i] = mapNetwork(summary)
+	}
+	return networks, nil
+}
+
+// RemoveNetwork removes the network with the given name (the Engine accepts the
+// name in place of the id).
+func (a *Adapter) RemoveNetwork(ctx context.Context, name string) error {
+	return a.client.NetworkRemove(ctx, name)
+}
+
+// PruneNetworks removes all unused networks.
+func (a *Adapter) PruneNetworks(ctx context.Context) error {
+	_, err := a.client.NetworksPrune(ctx, filters.Args{})
 	return err
 }
 

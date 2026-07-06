@@ -6,6 +6,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 )
 
 // fakeAPIClient is a test double for apiClient. Each method delegates to an
@@ -25,6 +26,9 @@ type fakeAPIClient struct {
 	containersPruneFn  func(ctx context.Context, pruneFilters filters.Args) (container.PruneReport, error)
 	containerStatsFn   func(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
 	containerLogsFn    func(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error)
+	networkListFn      func(ctx context.Context, options network.ListOptions) ([]network.Summary, error)
+	networkRemoveFn    func(ctx context.Context, networkID string) error
+	networksPruneFn    func(ctx context.Context, pruneFilters filters.Args) (network.PruneReport, error)
 }
 
 var _ apiClient = (*fakeAPIClient)(nil)
@@ -111,4 +115,25 @@ func (f *fakeAPIClient) ContainerLogs(ctx context.Context, containerID string, o
 		return f.containerLogsFn(ctx, containerID, options)
 	}
 	return nil, nil
+}
+
+func (f *fakeAPIClient) NetworkList(ctx context.Context, options network.ListOptions) ([]network.Summary, error) {
+	if f.networkListFn != nil {
+		return f.networkListFn(ctx, options)
+	}
+	return nil, nil
+}
+
+func (f *fakeAPIClient) NetworkRemove(ctx context.Context, networkID string) error {
+	if f.networkRemoveFn != nil {
+		return f.networkRemoveFn(ctx, networkID)
+	}
+	return nil
+}
+
+func (f *fakeAPIClient) NetworksPrune(ctx context.Context, pruneFilters filters.Args) (network.PruneReport, error) {
+	if f.networksPruneFn != nil {
+		return f.networksPruneFn(ctx, pruneFilters)
+	}
+	return network.PruneReport{}, nil
 }

@@ -1,7 +1,7 @@
 package presentation
 
-import "github.com/jesseduffield/lazydocker/pkg/commands"
+import "github.com/jesseduffield/lazydocker/pkg/domain"
 
-func GetNetworkDisplayStrings(network *commands.Network) []string {
-	return []string{network.Network.Driver, network.Name}
+func GetNetworkDisplayStrings(network *domain.Network) []string {
+	return []string{network.Driver, network.Name}
 }

@@ -24,9 +24,8 @@ type TopResult struct {
 // is consumer-defined here in the core and implemented by the docker adapter,
 // which owns the SDK↔domain mapping.
 //
-// This is the container slice of the port. It intentionally covers containers
-// only for now; image, volume, and network methods are added in later migration
-// slices (see docs/tui-migration-phase1-design.md §4 and §7).
+// This slice covers containers and networks. Image and volume methods are added
+// in later migration slices (see docs/tui-migration-phase1-design.md §4 and §7).
 type DockerAPI interface {
 	// ListContainers returns all containers with Details left nil (inspect
 	// populates details separately).
@@ -55,4 +54,13 @@ type DockerAPI interface {
 	// cancelled. The adapter owns TTY detection and stdout/stderr de-multiplexing,
 	// so callers receive already-demuxed bytes and need no SDK knowledge. It blocks.
 	StreamLogs(ctx context.Context, id string, opts LogOptions, out io.Writer) error
+
+	// ListNetworks returns all networks in the order the Engine reports them (the
+	// panel applies its own sort).
+	ListNetworks(ctx context.Context) ([]Network, error)
+	// RemoveNetwork removes the network with the given name (the Engine accepts the
+	// name as the id).
+	RemoveNetwork(ctx context.Context, name string) error
+	// PruneNetworks removes all unused networks.
+	PruneNetworks(ctx context.Context) error
 }

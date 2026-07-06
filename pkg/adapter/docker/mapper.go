@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
 
@@ -129,4 +130,34 @@ func mapContainerInspect(resp container.InspectResponse) domain.ContainerInspect
 	}
 
 	return inspect
+}
+
+// mapNetwork maps an SDK network.Inspect (the type NetworkList also returns, via
+// the network.Summary alias) to a domain.Network. Containers is rebuilt as a
+// domain-typed map keyed by the same container id; Labels and Options pass through.
+func mapNetwork(n network.Inspect) domain.Network {
+	nw := domain.Network{
+		ID:         n.ID,
+		Name:       n.Name,
+		Driver:     n.Driver,
+		Scope:      n.Scope,
+		EnableIPv6: n.EnableIPv6,
+		Internal:   n.Internal,
+		Attachable: n.Attachable,
+		Ingress:    n.Ingress,
+		Labels:     n.Labels,
+		Options:    n.Options,
+	}
+
+	if len(n.Containers) > 0 {
+		nw.Containers = make(map[string]domain.NetworkEndpoint, len(n.Containers))
+		for id, endpoint := range n.Containers {
+			nw.Containers[id] = domain.NetworkEndpoint{
+				Name:       endpoint.Name,
+				EndpointID: endpoint.EndpointID,
+			}
+		}
+	}
+
+	return nw
 }

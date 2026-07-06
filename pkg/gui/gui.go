@@ -35,6 +35,7 @@ type Gui struct {
 	ContainerCommands *usecase.ContainerCommands
 	ContainerQueries  *usecase.ContainerQueries
 	ServiceCommands   *usecase.ServiceCommands
+	NetworkCommands   *usecase.NetworkCommands
 	StatsMonitor      *usecase.StatsMonitor
 	OSCommand         *commands.OSCommand
 	State             guiState
@@ -61,7 +62,7 @@ type Panels struct {
 	Containers *panels.SideListPanel[*domain.Container]
 	Images     *panels.SideListPanel[*commands.Image]
 	Volumes    *panels.SideListPanel[*commands.Volume]
-	Networks   *panels.SideListPanel[*commands.Network]
+	Networks   *panels.SideListPanel[*domain.Network]
 	Menu       *panels.SideListPanel[*types.MenuItem]
 }
 
@@ -155,6 +156,7 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 		ContainerCommands: usecase.NewContainerCommands(dockerAdapter),
 		ContainerQueries:  usecase.NewContainerQueries(dockerAdapter),
 		ServiceCommands:   usecase.NewServiceCommands(composeRunner),
+		NetworkCommands:   usecase.NewNetworkCommands(dockerAdapter),
 		StatsMonitor:      usecase.NewStatsMonitor(dockerAdapter, config.UserConfig.Stats.MaxDuration),
 		OSCommand:         oSCommand,
 		State:             initialState,

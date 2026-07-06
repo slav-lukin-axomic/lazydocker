@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 )
 
@@ -31,9 +31,9 @@ func TestGetVolumeDisplayStrings(t *testing.T) {
 }
 
 func TestGetNetworkDisplayStrings(t *testing.T) {
-	nw := &commands.Network{
-		Name:    "bridge",
-		Network: network.Inspect{Driver: "bridge"},
+	nw := &domain.Network{
+		Name:   "bridge",
+		Driver: "bridge",
 	}
 	got := strings.Join(GetNetworkDisplayStrings(nw), colSep)
 	assertGolden(t, "network", got)

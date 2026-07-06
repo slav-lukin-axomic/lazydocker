@@ -1,12 +1,14 @@
 package gui
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
@@ -15,11 +17,11 @@ import (
 	"github.com/samber/lo"
 )
 
-func (gui *Gui) getNetworksPanel() *panels.SideListPanel[*commands.Network] {
-	return &panels.SideListPanel[*commands.Network]{
-		ContextState: &panels.ContextState[*commands.Network]{
-			GetMainTabs: func() []panels.MainTab[*commands.Network] {
-				return []panels.MainTab[*commands.Network]{
+func (gui *Gui) getNetworksPanel() *panels.SideListPanel[*domain.Network] {
+	return &panels.SideListPanel[*domain.Network]{
+		ContextState: &panels.ContextState[*domain.Network]{
+			GetMainTabs: func() []panels.MainTab[*domain.Network] {
+				return []panels.MainTab[*domain.Network]{
 					{
 						Key:    "config",
 						Title:  gui.Tr.ConfigTitle,
@@ -27,12 +29,12 @@ func (gui *Gui) getNetworksPanel() *panels.SideListPanel[*commands.Network] {
 					},
 				}
 			},
-			GetItemContextCacheKey: func(network *commands.Network) string {
+			GetItemContextCacheKey: func(network *domain.Network) string {
 				return "networks-" + network.Name
 			},
 		},
-		ListPanel: panels.ListPanel[*commands.Network]{
-			List: panels.NewFilteredList[*commands.Network](),
+		ListPanel: panels.ListPanel[*domain.Network]{
+			List: panels.NewFilteredList[*domain.Network](),
 			View: gui.Views.Networks,
 		},
 		NoItemsMessage: gui.Tr.NoNetworks,
@@ -40,33 +42,33 @@ func (gui *Gui) getNetworksPanel() *panels.SideListPanel[*commands.Network] {
 		// we're sorting these networks based on whether they have labels defined,
 		// because those are the ones you typically care about.
 		// Within that, we also sort them alphabetically
-		Sort: func(a *commands.Network, b *commands.Network) bool {
+		Sort: func(a *domain.Network, b *domain.Network) bool {
 			return a.Name < b.Name
 		},
 		GetTableCells: presentation.GetNetworkDisplayStrings,
 	}
 }
 
-func (gui *Gui) renderNetworkConfig(network *commands.Network) tasks.TaskFunc {
+func (gui *Gui) renderNetworkConfig(network *domain.Network) tasks.TaskFunc {
 	return gui.NewSimpleRenderStringTask(func() string { return gui.networkConfigStr(network) })
 }
 
-func (gui *Gui) networkConfigStr(network *commands.Network) string {
+func (gui *Gui) networkConfigStr(network *domain.Network) string {
 	padding := 15
 	output := ""
-	output += utils.WithPadding("ID: ", padding) + network.Network.ID + "\n"
+	output += utils.WithPadding("ID: ", padding) + network.ID + "\n"
 	output += utils.WithPadding("Name: ", padding) + network.Name + "\n"
-	output += utils.WithPadding("Driver: ", padding) + network.Network.Driver + "\n"
-	output += utils.WithPadding("Scope: ", padding) + network.Network.Scope + "\n"
-	output += utils.WithPadding("EnabledIPV6: ", padding) + strconv.FormatBool(network.Network.EnableIPv6) + "\n"
-	output += utils.WithPadding("Internal: ", padding) + strconv.FormatBool(network.Network.Internal) + "\n"
-	output += utils.WithPadding("Attachable: ", padding) + strconv.FormatBool(network.Network.Attachable) + "\n"
-	output += utils.WithPadding("Ingress: ", padding) + strconv.FormatBool(network.Network.Ingress) + "\n"
+	output += utils.WithPadding("Driver: ", padding) + network.Driver + "\n"
+	output += utils.WithPadding("Scope: ", padding) + network.Scope + "\n"
+	output += utils.WithPadding("EnabledIPV6: ", padding) + strconv.FormatBool(network.EnableIPv6) + "\n"
+	output += utils.WithPadding("Internal: ", padding) + strconv.FormatBool(network.Internal) + "\n"
+	output += utils.WithPadding("Attachable: ", padding) + strconv.FormatBool(network.Attachable) + "\n"
+	output += utils.WithPadding("Ingress: ", padding) + strconv.FormatBool(network.Ingress) + "\n"
 
 	output += utils.WithPadding("Containers: ", padding)
-	if len(network.Network.Containers) > 0 {
+	if len(network.Containers) > 0 {
 		output += "\n"
-		for _, v := range network.Network.Containers {
+		for _, v := range network.Containers {
 			output += utils.FormatMapItem(padding, v.Name, v.EndpointID)
 		}
 	} else {
@@ -74,8 +76,8 @@ func (gui *Gui) networkConfigStr(network *commands.Network) string {
 	}
 
 	output += "\n"
-	output += utils.WithPadding("Labels: ", padding) + utils.FormatMap(padding, network.Network.Labels) + "\n"
-	output += utils.WithPadding("Options: ", padding) + utils.FormatMap(padding, network.Network.Options)
+	output += utils.WithPadding("Labels: ", padding) + utils.FormatMap(padding, network.Labels) + "\n"
+	output += utils.WithPadding("Options: ", padding) + utils.FormatMap(padding, network.Options)
 
 	return output
 }
@@ -89,7 +91,7 @@ func (gui *Gui) reloadNetworks() error {
 }
 
 func (gui *Gui) refreshStateNetworks() error {
-	networks, err := gui.DockerCommand.RefreshNetworks()
+	networks, err := gui.NetworkCommands.List(context.Background())
 	if err != nil {
 		return err
 	}
@@ -122,7 +124,7 @@ func (gui *Gui) handleNetworksRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 			LabelColumns: []string{option.description, color.New(color.FgRed).Sprint(option.command)},
 			OnPress: func() error {
 				return gui.WithWaitingStatus(gui.Tr.RemovingStatus, func() error {
-					if err := network.Remove(); err != nil {
+					if err := gui.NetworkCommands.Remove(context.Background(), network.Name); err != nil {
 						return gui.createErrorPanel(err.Error())
 					}
 					return nil
@@ -140,7 +142,7 @@ func (gui *Gui) handleNetworksRemoveMenu(g *gocui.Gui, v *gocui.View) error {
 func (gui *Gui) handlePruneNetworks() error {
 	return gui.createConfirmationPanel(gui.Tr.Confirm, gui.Tr.ConfirmPruneNetworks, func(g *gocui.Gui, v *gocui.View) error {
 		return gui.WithWaitingStatus(gui.Tr.PruningStatus, func() error {
-			err := gui.DockerCommand.PruneNetworks()
+			err := gui.NetworkCommands.Prune(context.Background())
 			if err != nil {
 				return gui.createErrorPanel(err.Error())
 			}

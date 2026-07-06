@@ -29,6 +29,9 @@ type fakeDockerAPI struct {
 	pruneContainersFn         func(ctx context.Context) error
 	streamStatsFn             func(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error
 	streamLogsFn              func(ctx context.Context, id string, opts domain.LogOptions, out io.Writer) error
+	listNetworksFn            func(ctx context.Context) ([]domain.Network, error)
+	removeNetworkFn           func(ctx context.Context, name string) error
+	pruneNetworksFn           func(ctx context.Context) error
 }
 
 var _ domain.DockerAPI = (*fakeDockerAPI)(nil)
@@ -120,6 +123,27 @@ func (f *fakeDockerAPI) StreamStats(ctx context.Context, id string, onSample fun
 func (f *fakeDockerAPI) StreamLogs(ctx context.Context, id string, opts domain.LogOptions, out io.Writer) error {
 	if f.streamLogsFn != nil {
 		return f.streamLogsFn(ctx, id, opts, out)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) ListNetworks(ctx context.Context) ([]domain.Network, error) {
+	if f.listNetworksFn != nil {
+		return f.listNetworksFn(ctx)
+	}
+	return nil, nil
+}
+
+func (f *fakeDockerAPI) RemoveNetwork(ctx context.Context, name string) error {
+	if f.removeNetworkFn != nil {
+		return f.removeNetworkFn(ctx, name)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) PruneNetworks(ctx context.Context) error {
+	if f.pruneNetworksFn != nil {
+		return f.pruneNetworksFn(ctx)
 	}
 	return nil
 }
