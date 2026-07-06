@@ -49,10 +49,7 @@ func ContainerToDomain(c *commands.Container) *domain.Container {
 	}
 
 	if stats, ok := c.GetLastStats(); ok {
-		out.Stats = &domain.DerivedStats{
-			CPUPercentage:    stats.DerivedStats.CPUPercentage,
-			MemoryPercentage: stats.DerivedStats.MemoryPercentage,
-		}
+		out.Stats = &stats.DerivedStats
 	}
 
 	return out

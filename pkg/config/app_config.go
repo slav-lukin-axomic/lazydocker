@@ -253,7 +253,7 @@ type GraphConfig struct {
 	Caption string `yaml:"caption,omitempty"`
 
 	// This is the path to the stat that you want to display. It is based on the
-	// RecordedStats struct in container_stats.go, so feel free to look there to
+	// RecordedStats struct in pkg/domain/stats.go, so feel free to look there to
 	// see all the options available. Alternatively if you go into lazydocker and
 	// go to the stats tab, you'll see that same struct in JSON format, so you can
 	// just PascalCase the path and you'll have a valid path. E.g.

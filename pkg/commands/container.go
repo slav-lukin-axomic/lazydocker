@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/go-errors/errors"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sasha-s/go-deadlock"
@@ -30,7 +31,7 @@ type Container struct {
 	Client          DockerClient
 	OSCommand       *OSCommand
 	Log             *logrus.Entry
-	StatHistory     []*RecordedStats
+	StatHistory     []*domain.RecordedStats
 	Details         container.InspectResponse
 	MonitoringStats bool
 	DockerCommand   LimitedDockerCommand

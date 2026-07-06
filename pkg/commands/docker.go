@@ -23,6 +23,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/jesseduffield/lazydocker/pkg/commands/ssh"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sasha-s/go-deadlock"
@@ -205,12 +206,12 @@ func (c *DockerCommand) CreateClientStatMonitor(container *Container) {
 	scanner := bufio.NewScanner(stream.Body)
 	for scanner.Scan() {
 		data := scanner.Bytes()
-		var stats ContainerStats
+		var stats domain.ContainerStats
 		_ = json.Unmarshal(data, &stats)
 
-		recordedStats := &RecordedStats{
+		recordedStats := &domain.RecordedStats{
 			ClientStats: stats,
-			DerivedStats: DerivedStats{
+			DerivedStats: domain.DerivedStats{
 				CPUPercentage:    stats.CalculateContainerCPUPercentage(),
 				MemoryPercentage: stats.CalculateContainerMemoryUsage(),
 			},

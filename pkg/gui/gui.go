@@ -16,6 +16,7 @@ import (
 	"github.com/jesseduffield/lazydocker/pkg/adapter/docker"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
@@ -81,7 +82,7 @@ type guiState struct {
 	Platform         commands.Platform
 	Panels           *panelStates
 	SubProcessOutput string
-	Stats            map[string]commands.ContainerStats
+	Stats            map[string]domain.ContainerStats
 
 	// if true, we show containers with an 'exited' status in the containers panel
 	ShowExitedContainers bool

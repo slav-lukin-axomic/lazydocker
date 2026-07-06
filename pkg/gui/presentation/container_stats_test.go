@@ -7,6 +7,7 @@ import (
 
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
 
 // elapsedCaption matches the "(1s)" style elapsed-duration suffix that plotGraph
@@ -26,13 +27,13 @@ func TestRenderStats(t *testing.T) {
 	ctr := &commands.Container{Name: "web"}
 	// Fixed-shape history so the plotted graph is deterministic.
 	for i, cpu := range []float64{10, 40, 25} {
-		stats := commands.ContainerStats{}
+		stats := domain.ContainerStats{}
 		stats.PidsStats.Current = 7
 		stats.Networks.Eth0.RxBytes = 2048
 		stats.Networks.Eth0.TxBytes = 4096
-		ctr.StatHistory = append(ctr.StatHistory, &commands.RecordedStats{
+		ctr.StatHistory = append(ctr.StatHistory, &domain.RecordedStats{
 			ClientStats: stats,
-			DerivedStats: commands.DerivedStats{
+			DerivedStats: domain.DerivedStats{
 				CPUPercentage:    cpu,
 				MemoryPercentage: cpu / 2,
 			},

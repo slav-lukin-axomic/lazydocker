@@ -43,8 +43,8 @@ func TestContainerToDomain(t *testing.T) {
 				},
 				Config: &container.Config{OpenStdin: true},
 			},
-			StatHistory: []*commands.RecordedStats{
-				{DerivedStats: commands.DerivedStats{CPUPercentage: 12.5, MemoryPercentage: 42.0}},
+			StatHistory: []*domain.RecordedStats{
+				{DerivedStats: domain.DerivedStats{CPUPercentage: 12.5, MemoryPercentage: 42.0}},
 			},
 		}
 
