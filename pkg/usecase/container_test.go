@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/jesseduffield/lazydocker/pkg/domain"
@@ -27,6 +28,7 @@ type fakeDockerAPI struct {
 	containerTopFn            func(ctx context.Context, id string) (domain.TopResult, error)
 	pruneContainersFn         func(ctx context.Context) error
 	streamStatsFn             func(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error
+	streamLogsFn              func(ctx context.Context, id string, opts domain.LogOptions, out io.Writer) error
 }
 
 var _ domain.DockerAPI = (*fakeDockerAPI)(nil)
@@ -111,6 +113,13 @@ func (f *fakeDockerAPI) PruneContainers(ctx context.Context) error {
 func (f *fakeDockerAPI) StreamStats(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error {
 	if f.streamStatsFn != nil {
 		return f.streamStatsFn(ctx, id, onSample)
+	}
+	return nil
+}
+
+func (f *fakeDockerAPI) StreamLogs(ctx context.Context, id string, opts domain.LogOptions, out io.Writer) error {
+	if f.streamLogsFn != nil {
+		return f.streamLogsFn(ctx, id, opts, out)
 	}
 	return nil
 }

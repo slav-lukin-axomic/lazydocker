@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"io"
 
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
@@ -27,4 +28,15 @@ func (c *ContainerQueries) Top(ctx context.Context, id string) (domain.TopResult
 // detail views. Identity fields on the projection are left for the caller to fill.
 func (c *ContainerQueries) Inspect(ctx context.Context, id string) (domain.ContainerInspect, string, error) {
 	return c.api.InspectContainerVerbose(ctx, id)
+}
+
+// StreamLogs streams a container's logs to out via the port. Blocks until the
+// stream ends or ctx is cancelled.
+func (c *ContainerQueries) StreamLogs(ctx context.Context, id string, opts domain.LogOptions, out io.Writer) error {
+	return c.api.StreamLogs(ctx, id, opts, out)
+}
+
+// Details returns the lean inspect projection (Running/ExitCode/Health/OpenStdin).
+func (c *ContainerQueries) Details(ctx context.Context, id string) (domain.ContainerDetails, error) {
+	return c.api.InspectContainer(ctx, id)
 }

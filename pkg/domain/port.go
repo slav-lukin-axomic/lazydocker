@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"io"
 )
 
 // ErrContainerRunning is returned by RemoveContainer when Docker refuses to
@@ -50,4 +51,8 @@ type DockerAPI interface {
 	// StreamStats streams recorded stats samples for a container until the stream
 	// ends or ctx is cancelled, invoking onSample for each. It blocks.
 	StreamStats(ctx context.Context, id string, onSample func(*RecordedStats)) error
+	// StreamLogs streams a container's logs to out until the stream ends or ctx is
+	// cancelled. The adapter owns TTY detection and stdout/stderr de-multiplexing,
+	// so callers receive already-demuxed bytes and need no SDK knowledge. It blocks.
+	StreamLogs(ctx context.Context, id string, opts LogOptions, out io.Writer) error
 }

@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/stretchr/testify/assert"
 )
@@ -307,4 +309,111 @@ func TestStreamStatsPropagatesOpenError(t *testing.T) {
 	err := NewAdapter(fake).StreamStats(context.Background(), "abc", func(*domain.RecordedStats) { called = true })
 	assert.Same(t, sentinel, err)
 	assert.False(t, called)
+}
+
+// multiplexedLogStream builds a Docker stdout/stderr multiplexed byte stream the
+// way the daemon frames a non-TTY container's logs: each write is an 8-byte
+// header (stream byte, then a big-endian payload length) followed by the payload.
+func multiplexedLogStream(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if _, err := stdcopy.NewStdWriter(&buf, stdcopy.Stdout).Write([]byte("out line\n")); err != nil {
+		t.Fatalf("writing stdout frame: %v", err)
+	}
+	if _, err := stdcopy.NewStdWriter(&buf, stdcopy.Stderr).Write([]byte("err line\n")); err != nil {
+		t.Fatalf("writing stderr frame: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func TestStreamLogsDemuxesNonTTYStream(t *testing.T) {
+	t.Parallel()
+
+	var gotLogID string
+	var gotOpts container.LogsOptions
+	fake := &fakeAPIClient{
+		containerInspectFn: func(context.Context, string) (container.InspectResponse, error) {
+			// Config present with Tty false: the multiplex path.
+			return container.InspectResponse{Config: &container.Config{Tty: false}}, nil
+		},
+		containerLogsFn: func(_ context.Context, id string, options container.LogsOptions) (io.ReadCloser, error) {
+			gotLogID, gotOpts = id, options
+			return io.NopCloser(bytes.NewReader(multiplexedLogStream(t))), nil
+		},
+	}
+
+	var out bytes.Buffer
+	opts := domain.LogOptions{Timestamps: true, Since: "60m", Tail: "100"}
+	err := NewAdapter(fake).StreamLogs(context.Background(), "abc", opts, &out)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "abc", gotLogID)
+	// Both demuxed streams land, in order, on the single writer with headers stripped.
+	assert.Equal(t, "out line\nerr line\n", out.String())
+	// Follow is forced on; the domain knobs pass through unchanged.
+	assert.True(t, gotOpts.ShowStdout)
+	assert.True(t, gotOpts.ShowStderr)
+	assert.True(t, gotOpts.Follow)
+	assert.True(t, gotOpts.Timestamps)
+	assert.Equal(t, "60m", gotOpts.Since)
+	assert.Equal(t, "100", gotOpts.Tail)
+}
+
+func TestStreamLogsTTYPassesThroughRaw(t *testing.T) {
+	t.Parallel()
+
+	// A TTY stream carries no multiplex headers, so raw bytes must reach the
+	// writer untouched.
+	raw := "raw tty bytes, no header\n"
+	fake := &fakeAPIClient{
+		containerInspectFn: func(context.Context, string) (container.InspectResponse, error) {
+			return container.InspectResponse{Config: &container.Config{Tty: true}}, nil
+		},
+		containerLogsFn: func(context.Context, string, container.LogsOptions) (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader(raw)), nil
+		},
+	}
+
+	var out bytes.Buffer
+	err := NewAdapter(fake).StreamLogs(context.Background(), "abc", domain.LogOptions{}, &out)
+
+	assert.NoError(t, err)
+	assert.Equal(t, raw, out.String())
+}
+
+func TestStreamLogsPropagatesInspectError(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("no such container")
+	logsCalled := false
+	fake := &fakeAPIClient{
+		containerInspectFn: func(context.Context, string) (container.InspectResponse, error) {
+			return container.InspectResponse{}, sentinel
+		},
+		containerLogsFn: func(context.Context, string, container.LogsOptions) (io.ReadCloser, error) {
+			logsCalled = true
+			return nil, nil
+		},
+	}
+
+	err := NewAdapter(fake).StreamLogs(context.Background(), "abc", domain.LogOptions{}, io.Discard)
+	assert.Same(t, sentinel, err)
+	assert.False(t, logsCalled, "logs must not be opened when inspect fails")
+}
+
+func TestStreamLogsPropagatesLogsOpenError(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("logs stream unavailable")
+	fake := &fakeAPIClient{
+		containerInspectFn: func(context.Context, string) (container.InspectResponse, error) {
+			return container.InspectResponse{Config: &container.Config{Tty: false}}, nil
+		},
+		containerLogsFn: func(context.Context, string, container.LogsOptions) (io.ReadCloser, error) {
+			return nil, sentinel
+		},
+	}
+
+	err := NewAdapter(fake).StreamLogs(context.Background(), "abc", domain.LogOptions{}, io.Discard)
+	assert.Same(t, sentinel, err)
 }

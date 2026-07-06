@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 )
@@ -37,6 +39,7 @@ type apiClient interface {
 	ContainerTop(ctx context.Context, containerID string, arguments []string) (container.TopResponse, error)
 	ContainersPrune(ctx context.Context, pruneFilters filters.Args) (container.PruneReport, error)
 	ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
+	ContainerLogs(ctx context.Context, container string, options container.LogsOptions) (io.ReadCloser, error)
 }
 
 var _ apiClient = (*client.Client)(nil)
@@ -182,4 +185,38 @@ func (a *Adapter) StreamStats(ctx context.Context, id string, onSample func(*dom
 	}
 
 	return scanner.Err()
+}
+
+// StreamLogs streams a container's logs to out until the stream ends or ctx is
+// cancelled. It inspects the container up front to learn whether a TTY is
+// allocated (replacing the pre-migration GUI's wait-for-DetailsLoaded poll), then
+// copies the follow stream, keeping all SDK/TTY knowledge inside the adapter.
+func (a *Adapter) StreamLogs(ctx context.Context, id string, opts domain.LogOptions, out io.Writer) error {
+	resp, err := a.client.ContainerInspect(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	rc, err := a.client.ContainerLogs(ctx, id, container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Timestamps: opts.Timestamps,
+		Since:      opts.Since,
+		Tail:       opts.Tail,
+		Follow:     true,
+	})
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	// A TTY-allocated container multiplexes nothing; a non-TTY stream is the
+	// Docker stdout/stderr multiplex that stdcopy must de-mux (both sinks are the
+	// same writer, matching the pre-migration GUI behaviour).
+	if resp.Config != nil && resp.Config.Tty {
+		_, err = io.Copy(out, rc)
+	} else {
+		_, err = stdcopy.StdCopy(out, out, rc)
+	}
+	return err
 }

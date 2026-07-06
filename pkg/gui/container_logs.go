@@ -8,10 +8,9 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/fatih/color"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/tasks"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 )
@@ -50,13 +49,13 @@ func (gui *Gui) renderContainerLogsToMainAux(container *commands.Container, ctx 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			result, err := container.Inspect()
+			details, err := gui.ContainerQueries.Details(ctx, container.ID)
 			if err != nil {
 				// if we get an error, then the container has probably been removed so we'll get out of here
 				gui.Log.Error(err)
 				return
 			}
-			if result.State.Running {
+			if details.Running {
 				return
 			}
 		}
@@ -105,48 +104,9 @@ func (gui *Gui) promptToReturn() {
 }
 
 func (gui *Gui) writeContainerLogs(ctr *commands.Container, ctx context.Context, writer io.Writer) error {
-	readCloser, err := gui.DockerCommand.Client.ContainerLogs(ctx, ctr.ID, container.LogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
+	return gui.ContainerQueries.StreamLogs(ctx, ctr.ID, domain.LogOptions{
 		Timestamps: gui.Config.UserConfig.Logs.Timestamps,
 		Since:      gui.Config.UserConfig.Logs.Since,
 		Tail:       gui.Config.UserConfig.Logs.Tail,
-		Follow:     true,
-	})
-	if err != nil {
-		gui.Log.Error(err)
-		return err
-	}
-	defer readCloser.Close()
-
-	if !ctr.DetailsLoaded() {
-		// loop until the details load or context is cancelled, using timer
-		ticker := time.NewTicker(time.Millisecond * 100)
-		defer ticker.Stop()
-	outer:
-		for {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-ticker.C:
-				if ctr.DetailsLoaded() {
-					break outer
-				}
-			}
-		}
-	}
-
-	if ctr.Details.Config.Tty {
-		_, err = io.Copy(writer, readCloser)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err = stdcopy.StdCopy(writer, writer, readCloser)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	}, writer)
 }

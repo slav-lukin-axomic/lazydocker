@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"io"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -23,6 +24,7 @@ type fakeAPIClient struct {
 	containerTopFn     func(ctx context.Context, containerID string, arguments []string) (container.TopResponse, error)
 	containersPruneFn  func(ctx context.Context, pruneFilters filters.Args) (container.PruneReport, error)
 	containerStatsFn   func(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
+	containerLogsFn    func(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error)
 }
 
 var _ apiClient = (*fakeAPIClient)(nil)
@@ -102,4 +104,11 @@ func (f *fakeAPIClient) ContainerStats(ctx context.Context, containerID string, 
 		return f.containerStatsFn(ctx, containerID, stream)
 	}
 	return container.StatsResponseReader{}, nil
+}
+
+func (f *fakeAPIClient) ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
+	if f.containerLogsFn != nil {
+		return f.containerLogsFn(ctx, containerID, options)
+	}
+	return nil, nil
 }
