@@ -318,7 +318,7 @@ func (gui *Gui) handleServiceAttach(g *gocui.Gui, v *gocui.View) error {
 		return gui.createErrorPanel(gui.Tr.NoContainers)
 	}
 
-	c, err := service.Attach()
+	c, err := gui.attachToContainer(presentation.ContainerToDomain(service.Container))
 	if err != nil {
 		return gui.createErrorPanel(err.Error())
 	}

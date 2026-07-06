@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"time"
 
 	"github.com/jesseduffield/gocui"
@@ -390,12 +391,31 @@ func (gui *Gui) handleContainerAttach(g *gocui.Gui, v *gocui.View) error {
 		return nil
 	}
 
-	c, err := ctr.Attach()
+	c, err := gui.attachToContainer(presentation.ContainerToDomain(ctr))
 	if err != nil {
 		return gui.createErrorPanel(err.Error())
 	}
 
 	return gui.runSubprocessWithMessage(c, gui.Tr.DetachFromContainerShortCut)
+}
+
+// attachToContainer builds the `docker attach` subprocess for a container,
+// enforcing the same guards the pre-migration commands.Container.Attach did but
+// reading only framework-free domain fields (Details == nil means details are
+// not yet loaded). Attach shells out rather than using the SDK, so it lives in
+// the gui/composition layer, not behind the DockerAPI port.
+func (gui *Gui) attachToContainer(c *domain.Container) (*exec.Cmd, error) {
+	if c.Details == nil {
+		return nil, errors.New(gui.Tr.WaitingForContainerInfo)
+	}
+	if !c.Details.OpenStdin {
+		return nil, errors.New(gui.Tr.UnattachableContainerError)
+	}
+	if c.Status == domain.StatusExited {
+		return nil, errors.New(gui.Tr.CannotAttachStoppedContainerError)
+	}
+	gui.Log.Warn(fmt.Sprintf("attaching to container %s", c.Name))
+	return gui.OSCommand.NewCmd("docker", "attach", "--sig-proxy=false", c.ID), nil
 }
 
 func (gui *Gui) handlePruneContainers() error {

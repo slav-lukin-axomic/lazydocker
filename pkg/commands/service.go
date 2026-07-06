@@ -53,11 +53,6 @@ func (s *Service) runCommand(templateCmdStr string) error {
 	return s.OSCommand.RunCommand(command)
 }
 
-// Attach attaches to the service
-func (s *Service) Attach() (*exec.Cmd, error) {
-	return s.Container.Attach()
-}
-
 // ViewLogs attaches to a subprocess viewing the service's logs
 func (s *Service) ViewLogs() (*exec.Cmd, error) {
 	templateString := s.OSCommand.Config.UserConfig.CommandTemplates.ViewServiceLogs

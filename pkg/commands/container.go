@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -79,27 +78,6 @@ func (c *Container) Unpause() error {
 func (c *Container) Restart() error {
 	c.Log.Warn(fmt.Sprintf("restarting container %s", c.Name))
 	return c.Client.ContainerRestart(context.Background(), c.ID, container.StopOptions{})
-}
-
-// Attach attaches the container
-func (c *Container) Attach() (*exec.Cmd, error) {
-	if !c.DetailsLoaded() {
-		return nil, errors.New(c.Tr.WaitingForContainerInfo)
-	}
-
-	// verify that we can in fact attach to this container
-	if !c.Details.Config.OpenStdin {
-		return nil, errors.New(c.Tr.UnattachableContainerError)
-	}
-
-	if c.Container.State == "exited" {
-		return nil, errors.New(c.Tr.CannotAttachStoppedContainerError)
-	}
-
-	c.Log.Warn(fmt.Sprintf("attaching to container %s", c.Name))
-	// TODO: use SDK
-	cmd := c.OSCommand.NewCmd("docker", "attach", "--sig-proxy=false", c.ID)
-	return cmd, nil
 }
 
 // Top returns process information
