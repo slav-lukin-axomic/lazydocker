@@ -54,7 +54,7 @@ type LimitedDockerCommand interface {
 // CommandObject is what we pass to our template resolvers when we are running a custom command. We do not guarantee that all fields will be populated: just the ones that make sense for the current context
 type CommandObject struct {
 	DockerCompose string
-	Service       *Service
+	Service       *domain.Service
 	Container     *domain.Container
 	Image         *Image
 	Volume        *Volume
@@ -187,14 +187,14 @@ func (c *DockerCommand) Close() error {
 // It is the service-derivation half of the pre-migration
 // RefreshContainersAndServices; discovery of the containers themselves now lives
 // in the port-backed usecase.ContainerQueries.
-func (c *DockerCommand) DeriveServices(containers []*domain.Container) ([]*Service, error) {
+func (c *DockerCommand) DeriveServices(containers []*domain.Container) ([]*domain.Service, error) {
 	c.ServiceMutex.Lock()
 	defer c.ServiceMutex.Unlock()
 
 	// Derive services from container labels (covers all projects)
 	services := c.GetServicesFromContainers(containers)
 
-	var composeServices []*Service
+	var composeServices []*domain.Service
 	if c.InDockerComposeProject {
 		var err error
 		composeServices, err = c.GetServices()
@@ -240,14 +240,14 @@ func (c *DockerCommand) DeriveServices(containers []*domain.Container) ([]*Servi
 }
 
 // GetServicesFromContainers derives services from container labels for all projects
-func (c *DockerCommand) GetServicesFromContainers(containers []*domain.Container) []*Service {
+func (c *DockerCommand) GetServicesFromContainers(containers []*domain.Container) []*domain.Service {
 	// Use project+service as key to avoid duplicates
 	type serviceKey struct {
 		project string
 		service string
 	}
 	seen := make(map[serviceKey]bool)
-	services := make([]*Service, 0, len(containers))
+	services := make([]*domain.Service, 0, len(containers))
 
 	for _, ctr := range containers {
 		if ctr.ServiceName == "" || ctr.OneOff {
@@ -258,13 +258,10 @@ func (c *DockerCommand) GetServicesFromContainers(containers []*domain.Container
 			continue
 		}
 		seen[key] = true
-		services = append(services, &Service{
-			Name:          ctr.ServiceName,
-			ID:            ctr.ProjectName + "-" + ctr.ServiceName,
-			ProjectName:   ctr.ProjectName,
-			OSCommand:     c.OSCommand,
-			Log:           c.Log,
-			DockerCommand: c,
+		services = append(services, &domain.Service{
+			Name:        ctr.ServiceName,
+			ID:          ctr.ProjectName + "-" + ctr.ServiceName,
+			ProjectName: ctr.ProjectName,
 		})
 	}
 
@@ -274,7 +271,7 @@ func (c *DockerCommand) GetServicesFromContainers(containers []*domain.Container
 // mergeServices merges compose services (which may lack ProjectName) with
 // container-derived services. Compose services take priority because they
 // include services without running containers.
-func (c *DockerCommand) mergeServices(containerServices []*Service, composeServices []*Service) []*Service {
+func (c *DockerCommand) mergeServices(containerServices []*domain.Service, composeServices []*domain.Service) []*domain.Service {
 	// Set project name on compose services
 	for _, svc := range composeServices {
 		if svc.ProjectName == "" {
@@ -290,7 +287,7 @@ func (c *DockerCommand) mergeServices(containerServices []*Service, composeServi
 
 	// Start with compose services, then add container-derived services
 	// that aren't already covered by compose (i.e. from other projects)
-	result := make([]*Service, 0, len(composeServices)+len(containerServices))
+	result := make([]*domain.Service, 0, len(composeServices)+len(containerServices))
 	result = append(result, composeServices...)
 
 	for _, svc := range containerServices {
@@ -317,7 +314,7 @@ func (c *DockerCommand) GetProjectNames(containers []*domain.Container) []string
 	return names
 }
 
-func (c *DockerCommand) assignContainersToServices(containers []*domain.Container, services []*Service) {
+func (c *DockerCommand) assignContainersToServices(containers []*domain.Container, services []*domain.Service) {
 L:
 	for _, service := range services {
 		for _, ctr := range containers {
@@ -331,7 +328,7 @@ L:
 }
 
 // GetServices gets services
-func (c *DockerCommand) GetServices() ([]*Service, error) {
+func (c *DockerCommand) GetServices() ([]*domain.Service, error) {
 	if !c.InDockerComposeProject {
 		return nil, nil
 	}
@@ -347,15 +344,12 @@ func (c *DockerCommand) GetServices() ([]*Service, error) {
 	// service2
 
 	lines := utils.SplitLines(output)
-	services := make([]*Service, len(lines))
+	services := make([]*domain.Service, len(lines))
 	for i, str := range lines {
-		services[i] = &Service{
-			Name:          str,
-			ID:            c.LocalProjectName + "-" + str,
-			ProjectName:   c.LocalProjectName,
-			OSCommand:     c.OSCommand,
-			Log:           c.Log,
-			DockerCommand: c,
+		services[i] = &domain.Service{
+			Name:        str,
+			ID:          c.LocalProjectName + "-" + str,
+			ProjectName: c.LocalProjectName,
 		}
 	}
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 )
@@ -13,16 +12,16 @@ import (
 func TestGetServiceDisplayStrings(t *testing.T) {
 	cases := []struct {
 		name    string
-		service *commands.Service
+		service *domain.Service
 		stats   *domain.DerivedStats
 	}{
 		{
 			name:    "no_container",
-			service: &commands.Service{Name: "worker"},
+			service: &domain.Service{Name: "worker"},
 		},
 		{
 			name: "running_container",
-			service: &commands.Service{
+			service: &domain.Service{
 				Name: "web",
 				Container: withDetails(
 					makeContainer("web", runningSummary()),
@@ -32,7 +31,7 @@ func TestGetServiceDisplayStrings(t *testing.T) {
 		},
 		{
 			name: "running_container_with_cpu",
-			service: &commands.Service{
+			service: &domain.Service{
 				Name: "web",
 				Container: withDetails(
 					makeContainer("web", runningSummary()),
@@ -43,7 +42,7 @@ func TestGetServiceDisplayStrings(t *testing.T) {
 		},
 		{
 			name: "exited_container",
-			service: &commands.Service{
+			service: &domain.Service{
 				Name:      "job",
 				Container: withDetails(makeContainer("job", exitedSummary()), container.State{ExitCode: 1}),
 			},

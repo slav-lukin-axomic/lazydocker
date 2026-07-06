@@ -13,6 +13,7 @@ import (
 	throttle "github.com/boz/go-throttle"
 	"github.com/jesseduffield/gocui"
 	lcUtils "github.com/jesseduffield/lazycore/pkg/utils"
+	"github.com/jesseduffield/lazydocker/pkg/adapter/compose"
 	"github.com/jesseduffield/lazydocker/pkg/adapter/docker"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
@@ -33,6 +34,7 @@ type Gui struct {
 	DockerCommand     *commands.DockerCommand
 	ContainerCommands *usecase.ContainerCommands
 	ContainerQueries  *usecase.ContainerQueries
+	ServiceCommands   *usecase.ServiceCommands
 	StatsMonitor      *usecase.StatsMonitor
 	OSCommand         *commands.OSCommand
 	State             guiState
@@ -55,7 +57,7 @@ type Gui struct {
 
 type Panels struct {
 	Projects   *panels.SideListPanel[*commands.Project]
-	Services   *panels.SideListPanel[*commands.Service]
+	Services   *panels.SideListPanel[*domain.Service]
 	Containers *panels.SideListPanel[*domain.Container]
 	Images     *panels.SideListPanel[*commands.Image]
 	Volumes    *panels.SideListPanel[*commands.Volume]
@@ -145,12 +147,14 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 	}
 
 	dockerAdapter := docker.NewAdapter(dockerCommand.Client)
+	composeRunner := compose.NewRunner(dockerCommand.OSCommand, dockerCommand)
 
 	gui := &Gui{
 		Log:               log,
 		DockerCommand:     dockerCommand,
 		ContainerCommands: usecase.NewContainerCommands(dockerAdapter),
 		ContainerQueries:  usecase.NewContainerQueries(dockerAdapter),
+		ServiceCommands:   usecase.NewServiceCommands(composeRunner),
 		StatsMonitor:      usecase.NewStatsMonitor(dockerAdapter, config.UserConfig.Stats.MaxDuration),
 		OSCommand:         oSCommand,
 		State:             initialState,

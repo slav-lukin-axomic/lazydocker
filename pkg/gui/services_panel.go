@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"time"
 
 	"github.com/fatih/color"
@@ -18,11 +19,11 @@ import (
 	"github.com/samber/lo"
 )
 
-func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
-	return &panels.SideListPanel[*commands.Service]{
-		ContextState: &panels.ContextState[*commands.Service]{
-			GetMainTabs: func() []panels.MainTab[*commands.Service] {
-				return []panels.MainTab[*commands.Service]{
+func (gui *Gui) getServicesPanel() *panels.SideListPanel[*domain.Service] {
+	return &panels.SideListPanel[*domain.Service]{
+		ContextState: &panels.ContextState[*domain.Service]{
+			GetMainTabs: func() []panels.MainTab[*domain.Service] {
+				return []panels.MainTab[*domain.Service]{
 					{
 						Key:    "logs",
 						Title:  gui.Tr.LogsTitle,
@@ -50,21 +51,21 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 					},
 				}
 			},
-			GetItemContextCacheKey: func(service *commands.Service) string {
+			GetItemContextCacheKey: func(service *domain.Service) string {
 				if service.Container == nil {
 					return "services-" + service.ID
 				}
 				return "services-" + service.ID + "-" + service.Container.ID + "-" + service.Container.Status.String()
 			},
 		},
-		ListPanel: panels.ListPanel[*commands.Service]{
-			List: panels.NewFilteredList[*commands.Service](),
+		ListPanel: panels.ListPanel[*domain.Service]{
+			List: panels.NewFilteredList[*domain.Service](),
 			View: gui.Views.Services,
 		},
 		NoItemsMessage: gui.Tr.NoServices,
 		Gui:            gui.intoInterface(),
 		// sort services first by whether they have a linked container, and second by alphabetical order
-		Sort: func(a *commands.Service, b *commands.Service) bool {
+		Sort: func(a *domain.Service, b *domain.Service) bool {
 			if a.Container != nil && b.Container == nil {
 				return true
 			}
@@ -75,7 +76,7 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 
 			return a.Name < b.Name
 		},
-		Filter: func(service *commands.Service) bool {
+		Filter: func(service *domain.Service) bool {
 			selectedProject := gui.getSelectedProjectName()
 			if selectedProject == "" {
 				// Before any project is selected (e.g. startup), default to
@@ -87,7 +88,7 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 			}
 			return service.ProjectName == selectedProject
 		},
-		GetTableCells: func(service *commands.Service) []string {
+		GetTableCells: func(service *domain.Service) []string {
 			var stats *domain.DerivedStats
 			if service.Container != nil {
 				if last, ok := gui.StatsMonitor.LastStats(service.Container.ID); ok {
@@ -102,7 +103,7 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 	}
 }
 
-func (gui *Gui) renderServiceContainerConfig(service *commands.Service) tasks.TaskFunc {
+func (gui *Gui) renderServiceContainerConfig(service *domain.Service) tasks.TaskFunc {
 	if service.Container == nil {
 		return gui.NewSimpleRenderStringTask(func() string { return gui.Tr.NoContainer })
 	}
@@ -110,7 +111,7 @@ func (gui *Gui) renderServiceContainerConfig(service *commands.Service) tasks.Ta
 	return gui.renderContainerConfig(service.Container)
 }
 
-func (gui *Gui) renderServiceContainerEnv(service *commands.Service) tasks.TaskFunc {
+func (gui *Gui) renderServiceContainerEnv(service *domain.Service) tasks.TaskFunc {
 	if service.Container == nil {
 		return gui.NewSimpleRenderStringTask(func() string { return gui.Tr.NoContainer })
 	}
@@ -118,7 +119,7 @@ func (gui *Gui) renderServiceContainerEnv(service *commands.Service) tasks.TaskF
 	return gui.renderContainerEnv(service.Container)
 }
 
-func (gui *Gui) renderServiceStats(service *commands.Service) tasks.TaskFunc {
+func (gui *Gui) renderServiceStats(service *domain.Service) tasks.TaskFunc {
 	if service.Container == nil {
 		return gui.NewSimpleRenderStringTask(func() string { return gui.Tr.NoContainer })
 	}
@@ -126,10 +127,10 @@ func (gui *Gui) renderServiceStats(service *commands.Service) tasks.TaskFunc {
 	return gui.renderContainerStats(service.Container)
 }
 
-func (gui *Gui) renderServiceTop(service *commands.Service) tasks.TaskFunc {
+func (gui *Gui) renderServiceTop(service *domain.Service) tasks.TaskFunc {
 	return gui.NewTickerTask(TickerTaskOpts{
 		Func: func(ctx context.Context, notifyStopped chan struct{}) {
-			contents, err := service.RenderTop(ctx)
+			contents, err := gui.ServiceCommands.Top(ctx, service)
 			if err != nil {
 				gui.RenderStringMain(err.Error())
 			}
@@ -143,7 +144,7 @@ func (gui *Gui) renderServiceTop(service *commands.Service) tasks.TaskFunc {
 	})
 }
 
-func (gui *Gui) renderServiceLogs(service *commands.Service) tasks.TaskFunc {
+func (gui *Gui) renderServiceLogs(service *domain.Service) tasks.TaskFunc {
 	if service.Container == nil {
 		return gui.NewSimpleRenderStringTask(func() string { return gui.Tr.NoContainerForService })
 	}
@@ -164,7 +165,7 @@ func (r *commandOption) getDisplayStrings() []string {
 // isServiceFromLocalProject returns true if the given service belongs to the
 // local compose project (the one whose compose file is in the current directory).
 // Compose commands like up/stop/restart only work for local project services.
-func (gui *Gui) isServiceFromLocalProject(service *commands.Service) bool {
+func (gui *Gui) isServiceFromLocalProject(service *domain.Service) bool {
 	return service.ProjectName == gui.DockerCommand.LocalProjectName
 }
 
@@ -238,7 +239,7 @@ func (gui *Gui) handleServiceStop(g *gocui.Gui, v *gocui.View) error {
 				}
 				return gui.ContainerCommands.Stop(context.Background(), service.Container.ID)
 			}
-			if err := service.Stop(); err != nil {
+			if err := gui.ServiceCommands.Stop(service); err != nil {
 				return gui.createErrorPanel(err.Error())
 			}
 			return nil
@@ -257,7 +258,7 @@ func (gui *Gui) handleServiceUp(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	return gui.WithWaitingStatus(gui.Tr.UppingServiceStatus, func() error {
-		if err := service.Up(); err != nil {
+		if err := gui.ServiceCommands.Up(service); err != nil {
 			return gui.createErrorPanel(err.Error())
 		}
 
@@ -278,7 +279,7 @@ func (gui *Gui) handleServiceRestart(g *gocui.Gui, v *gocui.View) error {
 			}
 			return gui.ContainerCommands.Restart(context.Background(), service.Container.ID)
 		}
-		if err := service.Restart(); err != nil {
+		if err := gui.ServiceCommands.Restart(service); err != nil {
 			return gui.createErrorPanel(err.Error())
 		}
 		return nil
@@ -301,7 +302,7 @@ func (gui *Gui) handleServiceStart(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	return gui.WithWaitingStatus(gui.Tr.StartingStatus, func() error {
-		if err := service.Start(); err != nil {
+		if err := gui.ServiceCommands.Start(service); err != nil {
 			return gui.createErrorPanel(err.Error())
 		}
 		return nil
@@ -332,12 +333,29 @@ func (gui *Gui) handleServiceRenderLogsToMain(g *gocui.Gui, v *gocui.View) error
 		return nil
 	}
 
-	c, err := service.ViewLogs()
+	c, err := gui.viewServiceLogs(service)
 	if err != nil {
 		return gui.createErrorPanel(err.Error())
 	}
 
 	return gui.runSubprocess(c)
+}
+
+// viewServiceLogs builds a subprocess that tails the service's logs. It renders
+// the ViewServiceLogs template through the shared command object, matching what
+// the pre-migration commands.Service.ViewLogs produced. It lives on the GUI
+// (like attachToContainer) rather than the compose adapter because the resulting
+// exec.Cmd is driven interactively by the GUI's subprocess machinery.
+func (gui *Gui) viewServiceLogs(service *domain.Service) (*exec.Cmd, error) {
+	command := utils.ApplyTemplate(
+		gui.Config.UserConfig.CommandTemplates.ViewServiceLogs,
+		gui.DockerCommand.NewCommandObject(commands.CommandObject{Service: service}),
+	)
+
+	cmd := gui.OSCommand.ExecutableFromString(command)
+	gui.OSCommand.PrepareForChildren(cmd)
+
+	return cmd, nil
 }
 
 func (gui *Gui) handleProjectUp(g *gocui.Gui, v *gocui.View) error {
@@ -444,7 +462,7 @@ func (gui *Gui) handleServiceRestartMenu(g *gocui.Gui, v *gocui.View) error {
 			),
 			onPress: func() error {
 				return gui.WithWaitingStatus(gui.Tr.RestartingStatus, func() error {
-					if err := service.Restart(); err != nil {
+					if err := gui.ServiceCommands.Restart(service); err != nil {
 						return gui.createErrorPanel(err.Error())
 					}
 					return nil

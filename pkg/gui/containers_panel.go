@@ -26,7 +26,7 @@ func (gui *Gui) getContainersPanel() *panels.SideListPanel[*domain.Container] {
 			return true
 		}
 
-		return !lo.SomeBy(gui.Panels.Services.List.GetAllItems(), func(service *commands.Service) bool {
+		return !lo.SomeBy(gui.Panels.Services.List.GetAllItems(), func(service *domain.Service) bool {
 			return service.Name == container.ServiceName && service.ProjectName == container.ProjectName
 		})
 	}

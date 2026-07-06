@@ -2,13 +2,12 @@ package presentation
 
 import (
 	"github.com/fatih/color"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/config"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 )
 
-func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *commands.Service, stats *domain.DerivedStats) []string {
+func GetServiceDisplayStrings(guiConfig *config.GuiConfig, service *domain.Service, stats *domain.DerivedStats) []string {
 	if service.Container == nil {
 		var containerState string
 		switch guiConfig.ContainerStatusHealthStyle {
