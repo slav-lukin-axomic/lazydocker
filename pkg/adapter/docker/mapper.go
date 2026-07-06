@@ -5,6 +5,7 @@
 package docker
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -80,4 +81,51 @@ func mapInspectResponse(resp container.InspectResponse) domain.ContainerDetails 
 	}
 
 	return details
+}
+
+// mapContainerInspect maps an SDK container.InspectResponse to the
+// domain.ContainerInspect projection the Config/Env views render, nil-safely
+// (mirroring mapInspectResponse). ID and Name are left zero: they are the
+// summary-derived display identity the GUI supplies from the store.
+func mapContainerInspect(resp container.InspectResponse) domain.ContainerInspect {
+	inspect := domain.ContainerInspect{}
+
+	if resp.ContainerJSONBase != nil {
+		inspect.Command = append([]string{resp.Path}, resp.Args...)
+	}
+
+	if resp.Config != nil {
+		inspect.Image = resp.Config.Image
+		inspect.Labels = resp.Config.Labels
+		inspect.Env = resp.Config.Env
+	}
+
+	for _, m := range resp.Mounts {
+		inspect.Mounts = append(inspect.Mounts, domain.Mount{
+			Type:        string(m.Type),
+			Name:        m.Name,
+			Source:      m.Source,
+			Destination: m.Destination,
+		})
+	}
+
+	if resp.NetworkSettings != nil {
+		for containerPort, bindings := range resp.NetworkSettings.Ports {
+			hostPorts := make([]string, 0, len(bindings))
+			for _, binding := range bindings {
+				hostPorts = append(hostPorts, binding.HostPort)
+			}
+			inspect.Ports = append(inspect.Ports, domain.PortBinding{
+				ContainerPort: string(containerPort),
+				HostPorts:     hostPorts,
+			})
+		}
+		// The SDK carries ports in a map, which iterates in random order; sorting by
+		// container port makes the Config view goldenable.
+		sort.Slice(inspect.Ports, func(i, j int) bool {
+			return inspect.Ports[i].ContainerPort < inspect.Ports[j].ContainerPort
+		})
+	}
+
+	return inspect
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
+	"github.com/jesseduffield/lazydocker/pkg/utils"
 )
 
 // mustStopSubstring is the fragment Docker includes in the error when it refuses
@@ -75,6 +76,23 @@ func (a *Adapter) InspectContainer(ctx context.Context, id string) (domain.Conta
 		return domain.ContainerDetails{}, err
 	}
 	return mapInspectResponse(resp), nil
+}
+
+// InspectContainerVerbose inspects a container and returns the Config/Env
+// projection plus the raw full-inspect data marshalled to YAML. The YAML is
+// produced from the SDK's container.InspectResponse via utils.MarshalIntoYaml,
+// the same type and function the pre-migration GUI marshalled, so the bytes are
+// unchanged.
+func (a *Adapter) InspectContainerVerbose(ctx context.Context, id string) (domain.ContainerInspect, string, error) {
+	resp, err := a.client.ContainerInspect(ctx, id)
+	if err != nil {
+		return domain.ContainerInspect{}, "", err
+	}
+	yamlBytes, err := utils.MarshalIntoYaml(&resp)
+	if err != nil {
+		return domain.ContainerInspect{}, "", err
+	}
+	return mapContainerInspect(resp), string(yamlBytes), nil
 }
 
 // StartContainer starts a container.

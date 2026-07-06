@@ -22,3 +22,9 @@ func NewContainerQueries(api domain.DockerAPI) *ContainerQueries {
 func (c *ContainerQueries) Top(ctx context.Context, id string) (domain.TopResult, error) {
 	return c.api.ContainerTop(ctx, id)
 }
+
+// Inspect returns the inspect projection and raw YAML dump for the Config/Env
+// detail views. Identity fields on the projection are left for the caller to fill.
+func (c *ContainerQueries) Inspect(ctx context.Context, id string) (domain.ContainerInspect, string, error) {
+	return c.api.InspectContainerVerbose(ctx, id)
+}

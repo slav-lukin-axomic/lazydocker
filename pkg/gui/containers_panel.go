@@ -154,11 +154,17 @@ func (gui *Gui) containerEnv(container *commands.Container) string {
 		return gui.Tr.WaitingForContainerInfo
 	}
 
-	if len(container.Details.Config.Env) == 0 {
+	inspect, _, err := gui.ContainerQueries.Inspect(context.Background(), container.ID)
+	if err != nil {
+		gui.Log.Error(err)
+		return gui.Tr.CannotDisplayEnvVariables
+	}
+
+	if len(inspect.Env) == 0 {
 		return gui.Tr.NothingToDisplay
 	}
 
-	output, err := presentation.RenderContainerEnv(container.Details.Config.Env)
+	output, err := presentation.RenderContainerEnv(inspect.Env)
 	if err != nil {
 		gui.Log.Error(err)
 		return gui.Tr.CannotDisplayEnvVariables
@@ -176,13 +182,14 @@ func (gui *Gui) containerConfigStr(container *commands.Container) string {
 		return gui.Tr.WaitingForContainerInfo
 	}
 
-	data, err := utils.MarshalIntoYaml(&container.Details)
+	inspect, rawYAML, err := gui.ContainerQueries.Inspect(context.Background(), container.ID)
 	if err != nil {
-		return fmt.Sprintf("Error marshalling container details: %v", err)
+		return fmt.Sprintf("Error inspecting container: %v", err)
 	}
 
-	inspect := presentation.ContainerInspectToDomain(container)
-	return presentation.RenderContainerConfig(inspect, string(data))
+	inspect.ID = container.ID
+	inspect.Name = container.Name
+	return presentation.RenderContainerConfig(inspect, rawYAML)
 }
 
 func (gui *Gui) renderContainerStats(container *commands.Container) tasks.TaskFunc {

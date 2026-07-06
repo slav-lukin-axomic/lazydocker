@@ -15,17 +15,18 @@ import (
 // unset fields return zero values. Mirrors the repo's function-field fakes (see
 // pkg/adapter/docker/fake_client_test.go).
 type fakeDockerAPI struct {
-	listContainersFn   func(ctx context.Context) ([]domain.Container, error)
-	inspectContainerFn func(ctx context.Context, id string) (domain.ContainerDetails, error)
-	startContainerFn   func(ctx context.Context, id string) error
-	stopContainerFn    func(ctx context.Context, id string) error
-	restartContainerFn func(ctx context.Context, id string) error
-	pauseContainerFn   func(ctx context.Context, id string) error
-	unpauseContainerFn func(ctx context.Context, id string) error
-	removeContainerFn  func(ctx context.Context, id string, opts domain.RemoveOptions) error
-	containerTopFn     func(ctx context.Context, id string) (domain.TopResult, error)
-	pruneContainersFn  func(ctx context.Context) error
-	streamStatsFn      func(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error
+	listContainersFn          func(ctx context.Context) ([]domain.Container, error)
+	inspectContainerFn        func(ctx context.Context, id string) (domain.ContainerDetails, error)
+	inspectContainerVerboseFn func(ctx context.Context, id string) (domain.ContainerInspect, string, error)
+	startContainerFn          func(ctx context.Context, id string) error
+	stopContainerFn           func(ctx context.Context, id string) error
+	restartContainerFn        func(ctx context.Context, id string) error
+	pauseContainerFn          func(ctx context.Context, id string) error
+	unpauseContainerFn        func(ctx context.Context, id string) error
+	removeContainerFn         func(ctx context.Context, id string, opts domain.RemoveOptions) error
+	containerTopFn            func(ctx context.Context, id string) (domain.TopResult, error)
+	pruneContainersFn         func(ctx context.Context) error
+	streamStatsFn             func(ctx context.Context, id string, onSample func(*domain.RecordedStats)) error
 }
 
 var _ domain.DockerAPI = (*fakeDockerAPI)(nil)
@@ -42,6 +43,13 @@ func (f *fakeDockerAPI) InspectContainer(ctx context.Context, id string) (domain
 		return f.inspectContainerFn(ctx, id)
 	}
 	return domain.ContainerDetails{}, nil
+}
+
+func (f *fakeDockerAPI) InspectContainerVerbose(ctx context.Context, id string) (domain.ContainerInspect, string, error) {
+	if f.inspectContainerVerboseFn != nil {
+		return f.inspectContainerVerboseFn(ctx, id)
+	}
+	return domain.ContainerInspect{}, "", nil
 }
 
 func (f *fakeDockerAPI) StartContainer(ctx context.Context, id string) error {

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/go-connections/nat"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/stretchr/testify/assert"
 )
@@ -192,6 +194,75 @@ func TestMapInspectResponse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tc.want, mapInspectResponse(tc.resp))
+		})
+	}
+}
+
+func TestMapContainerInspect(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		resp container.InspectResponse
+		want domain.ContainerInspect
+	}{
+		{
+			name: "rich_response",
+			resp: container.InspectResponse{
+				ContainerJSONBase: &container.ContainerJSONBase{
+					ID:   "abc123",
+					Name: "/myproj-web-1",
+					Path: "nginx",
+					Args: []string{"-g", "daemon off;"},
+				},
+				Config: &container.Config{
+					Image:  "nginx:latest",
+					Labels: map[string]string{"com.docker.compose.service": "web"},
+					Env:    []string{"PATH=/usr/bin", "FOO=bar"},
+				},
+				Mounts: []container.MountPoint{
+					{Type: mount.TypeVolume, Name: "data", Source: "/var/lib/docker/volumes/data", Destination: "/data"},
+					{Type: mount.TypeBind, Source: "/host/path", Destination: "/container/path"},
+				},
+				NetworkSettings: &container.NetworkSettings{
+					NetworkSettingsBase: container.NetworkSettingsBase{
+						Ports: nat.PortMap{
+							"443/tcp": nil,
+							"80/tcp":  []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "8080"}},
+						},
+					},
+				},
+			},
+			want: domain.ContainerInspect{
+				Image:   "nginx:latest",
+				Command: []string{"nginx", "-g", "daemon off;"},
+				Labels:  map[string]string{"com.docker.compose.service": "web"},
+				Env:     []string{"PATH=/usr/bin", "FOO=bar"},
+				Mounts: []domain.Mount{
+					{Type: "volume", Name: "data", Source: "/var/lib/docker/volumes/data", Destination: "/data"},
+					{Type: "bind", Source: "/host/path", Destination: "/container/path"},
+				},
+				// Sorted by ContainerPort; the empty-bindings key yields an empty (non-nil) HostPorts.
+				Ports: []domain.PortBinding{
+					{ContainerPort: "443/tcp", HostPorts: []string{}},
+					{ContainerPort: "80/tcp", HostPorts: []string{"8080"}},
+				},
+			},
+		},
+		{
+			name: "nil_base_config_network_safe",
+			resp: container.InspectResponse{},
+			want: domain.ContainerInspect{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := mapContainerInspect(tc.resp)
+			assert.Equal(t, tc.want, got)
+			assert.Empty(t, got.ID, "ID left for the GUI to supply from the store")
+			assert.Empty(t, got.Name, "Name left for the GUI to supply from the store")
 		})
 	}
 }

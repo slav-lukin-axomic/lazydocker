@@ -31,6 +31,12 @@ type DockerAPI interface {
 	// populates details separately).
 	ListContainers(ctx context.Context) ([]Container, error)
 	InspectContainer(ctx context.Context, id string) (ContainerDetails, error)
+	// InspectContainerVerbose inspects a container and returns the framework-free
+	// projection the Config/Env detail views render, plus the raw full-inspect
+	// data marshalled to a YAML string (an opaque display blob). Identity fields
+	// (ID, Name) are intentionally left zero on the projection: they are the
+	// summary-derived display identity, which the caller supplies from the store.
+	InspectContainerVerbose(ctx context.Context, id string) (ContainerInspect, string, error)
 	StartContainer(ctx context.Context, id string) error
 	StopContainer(ctx context.Context, id string) error
 	RestartContainer(ctx context.Context, id string) error
