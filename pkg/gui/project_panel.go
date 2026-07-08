@@ -3,11 +3,13 @@ package gui
 import (
 	"bytes"
 	"context"
+	"os/exec"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
 	"github.com/jesseduffield/lazydocker/pkg/commands"
+	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
 	"github.com/jesseduffield/lazydocker/pkg/tasks"
@@ -15,11 +17,11 @@ import (
 	"github.com/jesseduffield/yaml"
 )
 
-func (gui *Gui) getProjectPanel() *panels.SideListPanel[*commands.Project] {
-	return &panels.SideListPanel[*commands.Project]{
-		ContextState: &panels.ContextState[*commands.Project]{
-			GetMainTabs: func() []panels.MainTab[*commands.Project] {
-				return []panels.MainTab[*commands.Project]{
+func (gui *Gui) getProjectPanel() *panels.SideListPanel[*domain.Project] {
+	return &panels.SideListPanel[*domain.Project]{
+		ContextState: &panels.ContextState[*domain.Project]{
+			GetMainTabs: func() []panels.MainTab[*domain.Project] {
+				return []panels.MainTab[*domain.Project]{
 					{
 						Key:    "logs",
 						Title:  gui.Tr.LogsTitle,
@@ -37,23 +39,23 @@ func (gui *Gui) getProjectPanel() *panels.SideListPanel[*commands.Project] {
 					},
 				}
 			},
-			GetItemContextCacheKey: func(project *commands.Project) string {
+			GetItemContextCacheKey: func(project *domain.Project) string {
 				return "projects-" + project.Name
 			},
 		},
 
-		ListPanel: panels.ListPanel[*commands.Project]{
-			List: panels.NewFilteredList[*commands.Project](),
+		ListPanel: panels.ListPanel[*domain.Project]{
+			List: panels.NewFilteredList[*domain.Project](),
 			View: gui.Views.Project,
 		},
 		NoItemsMessage: "",
 		Gui:            gui.intoInterface(),
 
-		Sort: func(a *commands.Project, b *commands.Project) bool {
+		Sort: func(a *domain.Project, b *domain.Project) bool {
 			return a.Name < b.Name
 		},
 		GetTableCells: presentation.GetProjectDisplayStrings,
-		OnSelect: func(project *commands.Project) error {
+		OnSelect: func(project *domain.Project) error {
 			// When a different project is selected, re-filter services and
 			// containers to show only those belonging to the selected project.
 			return gui.renderContainersAndServices()
@@ -97,9 +99,9 @@ func (gui *Gui) refreshProject() error {
 // The local project (from docker-compose.yml in the current directory, or from -p) is
 // included even when it has no running containers, so the user always sees the project
 // they explicitly scoped to.
-func (gui *Gui) getDiscoveredProjects() []*commands.Project {
+func (gui *Gui) getDiscoveredProjects() []*domain.Project {
 	containers := gui.Panels.Containers.List.GetAllItems()
-	projectNames := gui.DockerCommand.GetProjectNames(containers)
+	projects := gui.ProjectCommands.List(containers)
 
 	// If we're scoped to a project but it has no running containers, still
 	// include it. We don't fall back to the directory name here to avoid
@@ -108,20 +110,15 @@ func (gui *Gui) getDiscoveredProjects() []*commands.Project {
 
 	if gui.DockerCommand.IsProjectScoped() && localName != "" {
 		found := false
-		for _, name := range projectNames {
-			if name == localName {
+		for _, p := range projects {
+			if p.Name == localName {
 				found = true
 				break
 			}
 		}
 		if !found {
-			projectNames = append([]string{localName}, projectNames...)
+			projects = append([]*domain.Project{{Name: localName}}, projects...)
 		}
-	}
-
-	projects := make([]*commands.Project, len(projectNames))
-	for i, name := range projectNames {
-		projects[i] = &commands.Project{Name: name}
 	}
 
 	return projects
@@ -137,7 +134,7 @@ func (gui *Gui) getSelectedProjectName() string {
 	return project.Name
 }
 
-func (gui *Gui) renderCredits(_project *commands.Project) tasks.TaskFunc {
+func (gui *Gui) renderCredits(_project *domain.Project) tasks.TaskFunc {
 	return gui.NewSimpleRenderStringTask(func() string { return gui.creditsStr() })
 }
 
@@ -158,7 +155,7 @@ func (gui *Gui) creditsStr() string {
 		}, "\n\n")
 }
 
-func (gui *Gui) renderAllLogs(project *commands.Project) tasks.TaskFunc {
+func (gui *Gui) renderAllLogs(project *domain.Project) tasks.TaskFunc {
 	return gui.NewTask(TaskOpts{
 		Autoscroll: true,
 		Wrap:       gui.Config.UserConfig.Gui.WrapMainPanel,
@@ -190,7 +187,7 @@ func (gui *Gui) renderAllLogs(project *commands.Project) tasks.TaskFunc {
 	})
 }
 
-func (gui *Gui) renderDockerComposeConfig(project *commands.Project) tasks.TaskFunc {
+func (gui *Gui) renderDockerComposeConfig(project *domain.Project) tasks.TaskFunc {
 	if !gui.DockerCommand.InDockerComposeProject {
 		return gui.NewSimpleRenderStringTask(func() string {
 			return "Compose config is only available when launched from a docker-compose project directory"
@@ -202,7 +199,11 @@ func (gui *Gui) renderDockerComposeConfig(project *commands.Project) tasks.TaskF
 		})
 	}
 	return gui.NewSimpleRenderStringTask(func() string {
-		return utils.ColoredYamlString(gui.DockerCommand.DockerComposeConfigForProject(project))
+		out, err := gui.ProjectCommands.Config(project)
+		if err != nil {
+			out = err.Error()
+		}
+		return utils.ColoredYamlString(out)
 	})
 }
 
@@ -230,10 +231,23 @@ func lazydockerTitle() string {
 // handleViewAllLogs switches to a subprocess viewing all the logs from docker-compose
 func (gui *Gui) handleViewAllLogs(g *gocui.Gui, v *gocui.View) error {
 	project, _ := gui.Panels.Projects.GetSelectedItem()
-	c, err := gui.DockerCommand.ViewAllLogs(project)
+	c, err := gui.viewAllLogs(project)
 	if err != nil {
 		return gui.createErrorPanel(err.Error())
 	}
 
 	return gui.runSubprocess(c)
+}
+
+// viewAllLogs builds the subprocess command that streams all docker-compose logs
+// for the given project. It renders the ViewAllLogs template against a
+// project-scoped CommandObject, mirroring the service-panel viewServiceLogs helper.
+func (gui *Gui) viewAllLogs(project *domain.Project) (*exec.Cmd, error) {
+	command := utils.ApplyTemplate(
+		gui.Config.UserConfig.CommandTemplates.ViewAllLogs,
+		gui.DockerCommand.NewCommandObject(commands.CommandObject{Project: project}),
+	)
+	cmd := gui.OSCommand.ExecutableFromString(command)
+	gui.OSCommand.PrepareForChildren(cmd)
+	return cmd, nil
 }

@@ -35,6 +35,7 @@ type Gui struct {
 	ContainerCommands *usecase.ContainerCommands
 	ContainerQueries  *usecase.ContainerQueries
 	ServiceCommands   *usecase.ServiceCommands
+	ProjectCommands   *usecase.ProjectCommands
 	NetworkCommands   *usecase.NetworkCommands
 	VolumeCommands    *usecase.VolumeCommands
 	ImageCommands     *usecase.ImageCommands
@@ -59,7 +60,7 @@ type Gui struct {
 }
 
 type Panels struct {
-	Projects   *panels.SideListPanel[*commands.Project]
+	Projects   *panels.SideListPanel[*domain.Project]
 	Services   *panels.SideListPanel[*domain.Service]
 	Containers *panels.SideListPanel[*domain.Container]
 	Images     *panels.SideListPanel[*domain.Image]
@@ -158,6 +159,7 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 		ContainerCommands: usecase.NewContainerCommands(dockerAdapter),
 		ContainerQueries:  usecase.NewContainerQueries(dockerAdapter),
 		ServiceCommands:   usecase.NewServiceCommands(composeRunner),
+		ProjectCommands:   usecase.NewProjectCommands(composeRunner),
 		NetworkCommands:   usecase.NewNetworkCommands(dockerAdapter),
 		VolumeCommands:    usecase.NewVolumeCommands(dockerAdapter),
 		ImageCommands:     usecase.NewImageCommands(dockerAdapter, config.UserConfig.Replacements.ImageNamePrefixes),

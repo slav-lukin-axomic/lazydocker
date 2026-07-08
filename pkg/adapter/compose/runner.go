@@ -65,3 +65,12 @@ func (r *Runner) Top(ctx context.Context, svc *domain.Service) (string, error) {
 
 	return r.osCommand.RunCommandWithOutputContext(ctx, command)
 }
+
+// Config renders the docker-compose config of the given project.
+func (r *Runner) Config(project *domain.Project) (string, error) {
+	command := utils.ApplyTemplate(
+		r.osCommand.Config.UserConfig.CommandTemplates.DockerComposeConfig,
+		r.builder.NewCommandObject(commands.CommandObject{Project: project}),
+	)
+	return r.osCommand.RunCommandWithOutput(command)
+}

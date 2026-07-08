@@ -5,9 +5,7 @@ import (
 	"io"
 	ogLog "log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	cliconfig "github.com/docker/cli/cli/config"
@@ -59,7 +57,7 @@ type CommandObject struct {
 	Image         *domain.Image
 	Volume        *domain.Volume
 	Network       *domain.Network
-	Project       *Project
+	Project       *domain.Project
 }
 
 // NewCommandObject takes a command object and returns a default command object with the passed command object merged in
@@ -300,20 +298,6 @@ func (c *DockerCommand) mergeServices(containerServices []*domain.Service, compo
 	return result
 }
 
-// GetProjectNames returns all unique project names from containers
-func (c *DockerCommand) GetProjectNames(containers []*domain.Container) []string {
-	seen := make(map[string]bool)
-	var names []string
-	for _, ctr := range containers {
-		if ctr.ProjectName != "" && !seen[ctr.ProjectName] {
-			seen[ctr.ProjectName] = true
-			names = append(names, ctr.ProjectName)
-		}
-	}
-	sort.Strings(names)
-	return names
-}
-
 func (c *DockerCommand) assignContainersToServices(containers []*domain.Container, services []*domain.Service) {
 L:
 	for _, service := range services {
@@ -354,39 +338,6 @@ func (c *DockerCommand) GetServices() ([]*domain.Service, error) {
 	}
 
 	return services, nil
-}
-
-// ViewAllLogs attaches to a subprocess viewing all the logs from docker-compose
-func (c *DockerCommand) ViewAllLogs(project *Project) (*exec.Cmd, error) {
-	cmd := c.OSCommand.ExecutableFromString(
-		utils.ApplyTemplate(
-			c.OSCommand.Config.UserConfig.CommandTemplates.ViewAllLogs,
-			c.NewCommandObject(CommandObject{Project: project}),
-		),
-	)
-
-	c.OSCommand.PrepareForChildren(cmd)
-
-	return cmd, nil
-}
-
-// DockerComposeConfig returns the result of 'docker-compose config'
-func (c *DockerCommand) DockerComposeConfig() string {
-	return c.DockerComposeConfigForProject(nil)
-}
-
-// DockerComposeConfigForProject returns the result of 'docker-compose config' for a specific project
-func (c *DockerCommand) DockerComposeConfigForProject(project *Project) string {
-	output, err := c.OSCommand.RunCommandWithOutput(
-		utils.ApplyTemplate(
-			c.OSCommand.Config.UserConfig.CommandTemplates.DockerComposeConfig,
-			c.NewCommandObject(CommandObject{Project: project}),
-		),
-	)
-	if err != nil {
-		output = err.Error()
-	}
-	return output
 }
 
 // determineDockerHost tries to the determine the docker host that we should connect to

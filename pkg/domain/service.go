@@ -14,11 +14,12 @@ type Service struct {
 	Container   *Container
 }
 
-// ComposeRunner is the driven port for Compose lifecycle operations on a single
-// service. It is consumer-defined here in the core and implemented by the
-// compose adapter, which owns the template rendering and subprocess execution.
+// ComposeRunner is the driven port for Compose operations: single-service
+// lifecycle changes and a project-scoped config read. It is consumer-defined here
+// in the core and implemented by the compose adapter, which owns the template
+// rendering and subprocess execution.
 //
-// The blocking four take no context because the underlying subprocess runner has
+// The blocking ops take no context because the underlying subprocess runner has
 // no context-aware variant; Top streams output and so is cancellable via ctx.
 type ComposeRunner interface {
 	Stop(svc *Service) error
@@ -26,4 +27,5 @@ type ComposeRunner interface {
 	Start(svc *Service) error
 	Restart(svc *Service) error
 	Top(ctx context.Context, svc *Service) (string, error)
+	Config(project *Project) (string, error)
 }

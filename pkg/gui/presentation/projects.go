@@ -1,7 +1,7 @@
 package presentation
 
-import "github.com/jesseduffield/lazydocker/pkg/commands"
+import "github.com/jesseduffield/lazydocker/pkg/domain"
 
-func GetProjectDisplayStrings(project *commands.Project) []string {
+func GetProjectDisplayStrings(project *domain.Project) []string {
 	return []string{project.Name}
 }

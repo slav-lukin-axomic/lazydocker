@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 )
@@ -38,7 +37,7 @@ func TestGetNetworkDisplayStrings(t *testing.T) {
 }
 
 func TestGetProjectDisplayStrings(t *testing.T) {
-	project := &commands.Project{Name: "my-compose-project"}
+	project := &domain.Project{Name: "my-compose-project"}
 	got := strings.Join(GetProjectDisplayStrings(project), colSep)
 	assertGolden(t, "project", got)
 }
