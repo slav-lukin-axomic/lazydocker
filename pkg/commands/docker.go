@@ -12,11 +12,11 @@ import (
 	ddocker "github.com/docker/cli/cli/context/docker"
 	ctxstore "github.com/docker/cli/cli/context/store"
 	"github.com/docker/docker/client"
-	"github.com/imdario/mergo"
 	"github.com/jesseduffield/lazydocker/pkg/commands/ssh"
 	"github.com/jesseduffield/lazydocker/pkg/config"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
+	"github.com/jesseduffield/lazydocker/pkg/oscommand"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
@@ -29,7 +29,7 @@ const (
 // DockerCommand is our main docker interface
 type DockerCommand struct {
 	Log                    *logrus.Entry
-	OSCommand              *OSCommand
+	OSCommand              *oscommand.OSCommand
 	Tr                     *i18n.TranslationSet
 	Config                 *config.AppConfig
 	Client                 *client.Client
@@ -44,36 +44,9 @@ type DockerCommand struct {
 
 var _ io.Closer = &DockerCommand{}
 
-// LimitedDockerCommand is a stripped-down DockerCommand with just the methods the container/service/image might need
-type LimitedDockerCommand interface {
-	NewCommandObject(CommandObject) CommandObject
-}
-
-// CommandObject is what we pass to our template resolvers when we are running a custom command. We do not guarantee that all fields will be populated: just the ones that make sense for the current context
-type CommandObject struct {
-	DockerCompose string
-	Service       *domain.Service
-	Container     *domain.Container
-	Image         *domain.Image
-	Volume        *domain.Volume
-	Network       *domain.Network
-	Project       *domain.Project
-}
-
 // NewCommandObject takes a command object and returns a default command object with the passed command object merged in
-func (c *DockerCommand) NewCommandObject(obj CommandObject) CommandObject {
-	defaultObj := CommandObject{DockerCompose: c.Config.UserConfig.CommandTemplates.DockerCompose}
-	_ = mergo.Merge(&defaultObj, obj)
-
-	// When operating on a specific project, include -p flag so that
-	// docker compose targets the correct project.
-	if obj.Service != nil && obj.Service.ProjectName != "" {
-		defaultObj.DockerCompose = fmt.Sprintf("%s -p %s", defaultObj.DockerCompose, obj.Service.ProjectName)
-	} else if obj.Project != nil && obj.Project.Name != "" {
-		defaultObj.DockerCompose = fmt.Sprintf("%s -p %s", defaultObj.DockerCompose, obj.Project.Name)
-	}
-
-	return defaultObj
+func (c *DockerCommand) NewCommandObject(obj oscommand.CommandObject) oscommand.CommandObject {
+	return oscommand.NewCommandObject(c.Config.UserConfig.CommandTemplates.DockerCompose, obj)
 }
 
 // newDockerClient creates a Docker client with the given host.
@@ -92,7 +65,7 @@ func newDockerClient(dockerHost string) (*client.Client, error) {
 }
 
 // NewDockerCommand it runs docker commands
-func NewDockerCommand(log *logrus.Entry, osCommand *OSCommand, tr *i18n.TranslationSet, config *config.AppConfig, errorChan chan error) (*DockerCommand, error) {
+func NewDockerCommand(log *logrus.Entry, osCommand *oscommand.OSCommand, tr *i18n.TranslationSet, config *config.AppConfig, errorChan chan error) (*DockerCommand, error) {
 	dockerHost, err := determineDockerHost()
 	if err != nil {
 		ogLog.Printf("> could not determine host %v", err)
@@ -138,7 +111,7 @@ func NewDockerCommand(log *logrus.Entry, osCommand *OSCommand, tr *i18n.Translat
 	err = osCommand.RunCommand(
 		utils.ApplyTemplate(
 			config.UserConfig.CommandTemplates.CheckDockerComposeConfig,
-			dockerCommand.NewCommandObject(CommandObject{}),
+			dockerCommand.NewCommandObject(oscommand.CommandObject{}),
 		),
 	)
 	if err != nil {

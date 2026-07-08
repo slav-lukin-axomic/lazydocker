@@ -21,6 +21,7 @@ import (
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/types"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
+	"github.com/jesseduffield/lazydocker/pkg/oscommand"
 	"github.com/jesseduffield/lazydocker/pkg/tasks"
 	"github.com/jesseduffield/lazydocker/pkg/usecase"
 	"github.com/sasha-s/go-deadlock"
@@ -40,7 +41,7 @@ type Gui struct {
 	VolumeCommands    *usecase.VolumeCommands
 	ImageCommands     *usecase.ImageCommands
 	StatsMonitor      *usecase.StatsMonitor
-	OSCommand         *commands.OSCommand
+	OSCommand         *oscommand.OSCommand
 	State             guiState
 	Config            *config.AppConfig
 	Tr                *i18n.TranslationSet
@@ -86,7 +87,7 @@ type panelStates struct {
 type guiState struct {
 	// the names of views in the current focus stack (last item is the current view)
 	ViewStack        []string
-	Platform         commands.Platform
+	Platform         oscommand.Platform
 	Panels           *panelStates
 	SubProcessOutput string
 
@@ -136,7 +137,7 @@ func getScreenMode(config *config.AppConfig) WindowMaximisation {
 }
 
 // NewGui builds a new gui handler
-func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand *commands.OSCommand, tr *i18n.TranslationSet, config *config.AppConfig, errorChan chan error) (*Gui, error) {
+func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand *oscommand.OSCommand, tr *i18n.TranslationSet, config *config.AppConfig, errorChan chan error) (*Gui, error) {
 	initialState := guiState{
 		Platform: *oSCommand.Platform,
 		Panels: &panelStates{
@@ -151,7 +152,7 @@ func NewGui(log *logrus.Entry, dockerCommand *commands.DockerCommand, oSCommand 
 	}
 
 	dockerAdapter := docker.NewAdapter(dockerCommand.Client)
-	composeRunner := compose.NewRunner(dockerCommand.OSCommand, dockerCommand)
+	composeRunner := compose.NewRunner(dockerCommand.OSCommand)
 
 	gui := &Gui{
 		Log:               log,

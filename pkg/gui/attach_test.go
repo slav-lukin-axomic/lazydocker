@@ -3,9 +3,9 @@ package gui
 import (
 	"testing"
 
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
+	"github.com/jesseduffield/lazydocker/pkg/oscommand"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +15,7 @@ import (
 func TestAttachToContainer(t *testing.T) {
 	t.Parallel()
 
-	tr := i18n.NewTranslationSet(commands.NewDummyLog(), "en")
+	tr := i18n.NewTranslationSet(oscommand.NewDummyLog(), "en")
 
 	cases := []struct {
 		name      string
@@ -57,8 +57,8 @@ func TestAttachToContainer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			gui := &Gui{
-				Log:       commands.NewDummyLog(),
-				OSCommand: commands.NewDummyOSCommand(),
+				Log:       oscommand.NewDummyLog(),
+				OSCommand: oscommand.NewDummyOSCommand(),
 				Tr:        tr,
 			}
 

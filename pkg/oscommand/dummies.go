@@ -1,10 +1,9 @@
-package commands
+package oscommand
 
 import (
 	"io"
 
 	"github.com/jesseduffield/lazydocker/pkg/config"
-	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,20 +32,4 @@ func NewDummyLog() *logrus.Entry {
 	log := logrus.New()
 	log.Out = io.Discard
 	return log.WithField("test", "test")
-}
-
-// NewDummyDockerCommand creates a new dummy DockerCommand for testing
-func NewDummyDockerCommand() *DockerCommand {
-	return NewDummyDockerCommandWithOSCommand(NewDummyOSCommand())
-}
-
-// NewDummyDockerCommandWithOSCommand creates a new dummy DockerCommand for testing
-func NewDummyDockerCommandWithOSCommand(osCommand *OSCommand) *DockerCommand {
-	newAppConfig := NewDummyAppConfig()
-	return &DockerCommand{
-		Log:       NewDummyLog(),
-		OSCommand: osCommand,
-		Tr:        i18n.NewTranslationSet(NewDummyLog(), newAppConfig.UserConfig.Gui.Language),
-		Config:    newAppConfig,
-	}
 }

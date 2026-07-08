@@ -9,6 +9,7 @@ import (
 	"github.com/jesseduffield/lazydocker/pkg/gui"
 	"github.com/jesseduffield/lazydocker/pkg/i18n"
 	"github.com/jesseduffield/lazydocker/pkg/log"
+	"github.com/jesseduffield/lazydocker/pkg/oscommand"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -19,7 +20,7 @@ type App struct {
 
 	Config        *config.AppConfig
 	Log           *logrus.Entry
-	OSCommand     *commands.OSCommand
+	OSCommand     *oscommand.OSCommand
 	DockerCommand *commands.DockerCommand
 	Gui           *gui.Gui
 	Tr            *i18n.TranslationSet
@@ -39,7 +40,7 @@ func NewApp(config *config.AppConfig) (*App, error) {
 	if err != nil {
 		return app, err
 	}
-	app.OSCommand = commands.NewOSCommand(app.Log, config)
+	app.OSCommand = oscommand.NewOSCommand(app.Log, config)
 
 	// here is the place to make use of the docker-compose.yml file in the current directory
 

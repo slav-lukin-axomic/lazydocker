@@ -3,10 +3,10 @@ package domain
 import "context"
 
 // Service is the flat, framework-free model of a Docker Compose service. It
-// replaces the pre-migration commands.Service, which carried an OSCommand, a
-// logger, and a LimitedDockerCommand to shell out compose operations itself.
-// Those operations now live behind the ComposeRunner port. Container is nil
-// until a running container is matched to the service.
+// replaces the pre-migration commands.Service, which carried an OSCommand and a
+// logger to shell out compose operations itself. Those operations now live
+// behind the ComposeRunner port. Container is nil until a running container is
+// matched to the service.
 type Service struct {
 	Name        string
 	ID          string

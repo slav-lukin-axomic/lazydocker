@@ -8,10 +8,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/jesseduffield/gocui"
-	"github.com/jesseduffield/lazydocker/pkg/commands"
 	"github.com/jesseduffield/lazydocker/pkg/domain"
 	"github.com/jesseduffield/lazydocker/pkg/gui/panels"
 	"github.com/jesseduffield/lazydocker/pkg/gui/presentation"
+	"github.com/jesseduffield/lazydocker/pkg/oscommand"
 	"github.com/jesseduffield/lazydocker/pkg/tasks"
 	"github.com/jesseduffield/lazydocker/pkg/utils"
 	"github.com/jesseduffield/yaml"
@@ -165,7 +165,7 @@ func (gui *Gui) renderAllLogs(project *domain.Project) tasks.TaskFunc {
 			cmd := gui.OSCommand.RunCustomCommand(
 				utils.ApplyTemplate(
 					gui.Config.UserConfig.CommandTemplates.AllLogs,
-					gui.DockerCommand.NewCommandObject(commands.CommandObject{Project: project}),
+					gui.DockerCommand.NewCommandObject(oscommand.CommandObject{Project: project}),
 				),
 			)
 
@@ -245,7 +245,7 @@ func (gui *Gui) handleViewAllLogs(g *gocui.Gui, v *gocui.View) error {
 func (gui *Gui) viewAllLogs(project *domain.Project) (*exec.Cmd, error) {
 	command := utils.ApplyTemplate(
 		gui.Config.UserConfig.CommandTemplates.ViewAllLogs,
-		gui.DockerCommand.NewCommandObject(commands.CommandObject{Project: project}),
+		gui.DockerCommand.NewCommandObject(oscommand.CommandObject{Project: project}),
 	)
 	cmd := gui.OSCommand.ExecutableFromString(command)
 	gui.OSCommand.PrepareForChildren(cmd)
